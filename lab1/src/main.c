@@ -7,15 +7,15 @@
 // then a + b can be regarded as 0 and we can merge ax^n + bx^n to be 0.
 #define EPSILON 1e-10
 
-#define STRING_MAXLEN 65535
+#define STRING_MAXLEN 65536
+#define REGISTER_NUMBER 65536
 
-#define DEBUG
+// #define DEBUG
 #ifdef DEBUG
 #define LOG printf
 #else
 #define LOG //
 #endif
-
 
 typedef enum
 {
@@ -42,6 +42,16 @@ typedef struct Polynomial
 {
 	PolynomialNode *data_head;
 } Polynomial;
+
+Polynomial polynomial_registers[REGISTER_NUMBER];
+
+// View the messages in the console.
+int echo = 1;
+
+int invalid_register(int reg)
+{
+	return reg < 0 || reg > REGISTER_NUMBER;
+}
 
 // compare == 1 => a is outputed front than b
 // compare == 0 => a can be merged with b
@@ -96,7 +106,6 @@ void polynomial_compress(Polynomial* poly)
 	}
 }
 
-
 // Insert a term to the position and guarantee the list is correctly sorted.
 // O(n).
 void polynomial_insert(Polynomial* poly, double cof, int deg)
@@ -138,28 +147,69 @@ void polynomial_insert(Polynomial* poly, double cof, int deg)
 	polynomial_compress(poly);
 }
 
-
 Polynomial polynomial_add(Polynomial a, Polynomial b)
 {
+	// Simply add each term of a and each term of b together.
+	// And merge the terms with the same degree.
+	// O(n^2).
 	Polynomial c;
+	c.data_head = NULL;
+	for(PolynomialNode *p = a.data_head; p != NULL; p = p->next)
+		polynomial_insert(&c, p->term.cof, p->term.deg);
+	for(PolynomialNode *p = b.data_head; p != NULL; p = p->next)
+		polynomial_insert(&c, p->term.cof, p->term.deg);
 	return c;
 }
 
 Polynomial polynomial_substract(Polynomial a, Polynomial b)
 {
+	// Simply add each term of a and each negative term of b together.
+	// And merge the terms with the same degree.
+	// O(n^2).
 	Polynomial c;
+	c.data_head = NULL;
+	for(PolynomialNode *p = a.data_head; p != NULL; p = p->next)
+		polynomial_insert(&c, p->term.cof, p->term.deg);
+	for(PolynomialNode *p = b.data_head; p != NULL; p = p->next)
+		polynomial_insert(&c, -p->term.cof, p->term.deg);
 	return c;
 }
 
 Polynomial polynomial_derivation(Polynomial a)
 {
+	// Derivate each term in a ((cof * x^deg)' = cof * deg * x^(deg - 1)), and
+	// add them together into da.
+	// It can be optimized to O(n) because the order of the degrees haven't 
+	// changed.
 	Polynomial da;
+	da.data_head = NULL;
+	PolynomialNode *prev = NULL;
+	for(PolynomialNode *p = a.data_head; p != NULL; p = p->next)
+	{
+		if(p->term.deg != 0)
+		{
+			PolynomialNode *node = (PolynomialNode*)malloc(sizeof(PolynomialNode));
+			node->term.cof = p->term.cof * p->term.deg;
+			node->term.deg = p->term.deg - 1;
+			node->next = NULL;
+			if(prev == NULL) da.data_head = node;
+			else prev->next = node;
+			prev = node;
+		}
+	}
 	return da;
 }
 
 Polynomial polynomial_multiply(Polynomial a, Polynomial b)
 {
+	// Multiply each term in a with each term in b, and add them together.
+	// O(n^3).
 	Polynomial c;
+	c.data_head = NULL;
+	for(PolynomialNode *p = a.data_head; p != NULL; p = p->next)
+		for(PolynomialNode *q = b.data_head; q != NULL; q = q->next)
+			polynomial_insert(&c, p->term.cof * q->term.cof, 
+													p->term.deg + q->term.deg);
 	return c;
 }
 
@@ -247,7 +297,6 @@ Status polynomial_build_from_string(Polynomial *poly, char* str)
 					str[i + 1] = '-';
 				}
 			}
-			
 
 			// Step 3: Find the cofficient and the degree.
 
@@ -259,15 +308,15 @@ Status polynomial_build_from_string(Polynomial *poly, char* str)
 			// ...+x^2-...		If there's no cof, the cof is +1 or -1.
 			// ...+5x-...		If there's no deg, the deg is 1.
 			// ...+12+...		If pos_x is tail, the deg is 0 (constant).
-			double cof = 1.0;
-			int deg = 1;
+			double cof = 10000.0;
+			int deg = 10000;
 			int format_fail_flag = 0;
 
 			if(pos_x == p_term_tail)	// The term is constant.
 			{
 				LOG("# current term [%s|EMPTY]\n", str + p_term_head);
 				deg = 0;
-				if(!sscanf(str + p_term_head, "%lf", &cof))
+				if(sscanf(str + p_term_head, "%lf", &cof) != 1)
 				{
 					// When the term is constant but there is no number in it,
 					// we regard it as a error and ignore this term.
@@ -279,7 +328,7 @@ Status polynomial_build_from_string(Polynomial *poly, char* str)
 				LOG("# current term [%s|%s]\n", 
 						str + p_term_head, str + pos_x + 1);
 				
-				if(!sscanf(str + p_term_head, "%lf", &cof))
+				if(sscanf(str + p_term_head, "%lf", &cof) != 1)
 				{
 					// When we fail to read the cof, the cof is 1 or -1.
 					if(sign == -1) 
@@ -293,7 +342,7 @@ Status polynomial_build_from_string(Polynomial *poly, char* str)
 						LOG("# No cof, default as 1.\n");
 					}
 				}
-				if(!sscanf(str + pos_x + 1, "%d", &deg))
+				if(sscanf(str + pos_x + 1, "%d", &deg) != 1)
 				{
 					// When we fail to read the deg but there is a 'x',
 					// it means that the degree is 1.
@@ -404,31 +453,136 @@ void polynomial_print(Polynomial poly)
 	printf("\n");
 }
 
+
+// Commands:
+// There are 65536 registers from 0 to 65535 for you to use.
+// SET [reg]		// Read a line of polynomial and store it in the register.
+// PRINT [reg]		// Print the polynomial in the register.
+// ADD [rega] [regb] [regc]		// SET regc = rega + regb
+// SUB [rega] [regb] [regc]		// SET regc = rega - regb
+// MUL [rega] [regb] [regc]		// SET regc = rega * regb
+// DERI [rega] [regb]			// SET regb = rega'
+
 int main()
 {
 	while(1)
 	{
-		char str[STRING_MAXLEN];
-		fgets(str, STRING_MAXLEN - 1, stdin);
-		Polynomial poly;
-		poly.data_head = NULL;
-		Status status = polynomial_build_from_string(&poly, str);
-
-#ifdef DEBUG
-		polynomial_print_raw_list(poly);
-#endif
-
-		switch(status)
+		char cmd[STRING_MAXLEN];
+		if(echo) printf("> ");
+		if(scanf("%s", cmd) == EOF)
 		{
-			case OK:
-				polynomial_print(poly);
-				break;
-			case FAIL:
-				printf("Failed to read the polynomial.\n");
-				break;
+			break;
 		}
-		printf("\n");
-		polynomial_delete(poly);
+		int len = strlen(cmd);
+		for(int i = 0; i < len; i++)
+			if(cmd[i] >= 'a' && cmd[i] <= 'z')
+				cmd[i] += 'A' - 'a';
+		if(strcmp(cmd, "SET") == 0)
+		{
+			int reg;
+			scanf("%d", &reg);
+			if(invalid_register(reg))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+			if(echo)
+				printf("Please input the polynomial in register %d:\n", reg);
+			scanf("\n");
+
+			// Delete the existed polynomial.
+			polynomial_delete(polynomial_registers[reg]);
+
+			// Read a line as the polynomial.
+			char polynomial_str[STRING_MAXLEN];
+			fgets(polynomial_str, STRING_MAXLEN - 1, stdin);
+
+			Polynomial poly;
+			poly.data_head = NULL;
+			Status status = polynomial_build_from_string(&poly, polynomial_str);
+			if(status != OK)
+			{
+				if(echo) printf("Failed to read the polynomial.");
+				continue;
+			}
+			polynomial_registers[reg] = poly;
+		}
+		else if(strcmp(cmd, "PRINT") == 0)
+		{
+			int reg;
+			scanf("%d", &reg);
+			if(invalid_register(reg))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+			polynomial_print(polynomial_registers[reg]);
+		}
+		else if(strcmp(cmd, "ADD") == 0)
+		{
+			int rega, regb, regc;
+			scanf("%d%d%d", &rega, &regb, &regc);
+			if(invalid_register(rega) || invalid_register(regb)
+				|| invalid_register(regc))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+			polynomial_delete(polynomial_registers[regc]);
+			polynomial_registers[regc] = polynomial_add(
+					polynomial_registers[rega], polynomial_registers[regb]);
+		}
+		else if(strcmp(cmd, "SUB") == 0)
+		{
+			int rega, regb, regc;
+			scanf("%d%d%d", &rega, &regb, &regc);
+			if(invalid_register(rega) || invalid_register(regb)
+				|| invalid_register(regc))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+			polynomial_delete(polynomial_registers[regc]);
+			polynomial_registers[regc] = polynomial_substract(
+					polynomial_registers[rega], polynomial_registers[regb]);
+		}
+		else if(strcmp(cmd, "MUL") == 0)
+		{
+			int rega, regb, regc;
+			scanf("%d%d%d", &rega, &regb, &regc);
+			if(invalid_register(rega) || invalid_register(regb)
+				|| invalid_register(regc))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+			polynomial_delete(polynomial_registers[regc]);
+			polynomial_registers[regc] = polynomial_multiply(
+					polynomial_registers[rega], polynomial_registers[regb]);
+		}
+		else if(strcmp(cmd, "DERI") == 0)
+		{
+			int rega, regb;
+			scanf("%d%d", &rega, &regb);
+			if(invalid_register(rega) || invalid_register(regb))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+			polynomial_delete(polynomial_registers[regb]);
+			polynomial_registers[regb] = 
+							polynomial_derivation(polynomial_registers[rega]);
+		}
+		else if(strcmp(cmd, "SETECHO") == 0)
+		{
+			int status;
+			scanf("%d", &status);
+			echo = status;
+		}
+		else if(strcmp(cmd, "EXIT") == 0)
+		{
+			break;
+		}
 	}
 	return 0;
 }

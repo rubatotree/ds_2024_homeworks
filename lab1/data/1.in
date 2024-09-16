@@ -1,0 +1,7 @@
+setecho 0
+set 1
+2x+5x^8-3.1x^11
+set 2
+7-5x^8+11x^9
+add 1 2 3
+print 3

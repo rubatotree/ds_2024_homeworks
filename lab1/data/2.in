@@ -1,0 +1,7 @@
+setecho 0
+set 1
+6x^-3-x+4.4x^2-1.2x^9
+set 2
+-6x^-3+5.4x^2-x^2+7.8x^15
+sub 1 2 3
+print 3

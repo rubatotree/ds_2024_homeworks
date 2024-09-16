@@ -1,0 +1,7 @@
+setecho 0
+set 1
+x+x^3
+set 2
+-x-x^3
+add 1 2 3
+print 3
