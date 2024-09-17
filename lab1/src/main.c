@@ -528,9 +528,10 @@ void input_commands()
 				if(echo) printf("Invalid register number.\n");
 				continue;
 			}
-			polynomial_delete(polynomial_registers[regc]);
-			polynomial_registers[regc] = polynomial_add(
+			Polynomial poly = polynomial_add(
 					polynomial_registers[rega], polynomial_registers[regb]);
+			polynomial_delete(polynomial_registers[regc]);
+			polynomial_registers[regc] = poly;
 		}
 		else if(strcmp(cmd, "SUB") == 0)
 		{
@@ -542,9 +543,10 @@ void input_commands()
 				if(echo) printf("Invalid register number.\n");
 				continue;
 			}
-			polynomial_delete(polynomial_registers[regc]);
-			polynomial_registers[regc] = polynomial_substract(
+			Polynomial poly = polynomial_substract(
 					polynomial_registers[rega], polynomial_registers[regb]);
+			polynomial_delete(polynomial_registers[regc]);
+			polynomial_registers[regc] = poly;
 		}
 		else if(strcmp(cmd, "MUL") == 0)
 		{
@@ -556,9 +558,10 @@ void input_commands()
 				if(echo) printf("Invalid register number.\n");
 				continue;
 			}
-			polynomial_delete(polynomial_registers[regc]);
-			polynomial_registers[regc] = polynomial_multiply(
+			Polynomial poly = polynomial_multiply(
 					polynomial_registers[rega], polynomial_registers[regb]);
+			polynomial_delete(polynomial_registers[regc]);
+			polynomial_registers[regc] = poly;
 		}
 		else if(strcmp(cmd, "DERI") == 0)
 		{
@@ -569,9 +572,9 @@ void input_commands()
 				if(echo) printf("Invalid register number.\n");
 				continue;
 			}
+			Polynomial poly = polynomial_derivation(polynomial_registers[rega]);
 			polynomial_delete(polynomial_registers[regb]);
-			polynomial_registers[regb] = 
-							polynomial_derivation(polynomial_registers[rega]);
+			polynomial_registers[regb] = poly;
 		}
 		else if(strcmp(cmd, "EXIT") == 0)
 		{
