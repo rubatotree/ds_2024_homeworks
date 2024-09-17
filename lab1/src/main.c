@@ -463,7 +463,7 @@ void polynomial_print(Polynomial poly)
 // MUL [rega] [regb] [regc]		// SET regc = rega * regb
 // DERI [rega] [regb]			// SET regb = rega'
 
-int main()
+void input_commands()
 {
 	while(1)
 	{
@@ -573,16 +573,29 @@ int main()
 			polynomial_registers[regb] = 
 							polynomial_derivation(polynomial_registers[rega]);
 		}
-		else if(strcmp(cmd, "SETECHO") == 0)
-		{
-			int status;
-			scanf("%d", &status);
-			echo = status;
-		}
 		else if(strcmp(cmd, "EXIT") == 0)
 		{
 			break;
 		}
+		else
+		{
+			if(echo) printf("Invalid command.\n");
+		}
 	}
+}
+
+int main(int argc, char* argv[])
+{
+	if(argc >= 2)
+	{
+		for(int i = 1; i < argc; i++)
+		{
+			if(strcmp(argv[i], "-q") == 0)
+			{
+				echo = 0;
+			}
+		}
+	}
+	input_commands();
 	return 0;
 }
