@@ -35,7 +35,8 @@ void draw_polynomial(Polynomial& poly)
 		else
 		{
             if(sameline_flag) ImGui::SameLine();
-			if(fabs(p->term.cof - (double)(int)(p->term.cof)) < POLYNOMIAL_EPSILON)
+			if(fabs(p->term.cof - (double)(int)(p->term.cof)) 
+													< POLYNOMIAL_EPSILON)
 			{
 				ImGui::Text("%d", (int)(p->term.cof));
 			}
@@ -83,7 +84,11 @@ void init_gui()
 {
     ImGuiIO& io = ImGui::GetIO(); 
 
-    font_smaller = io.Fonts->AddFontFromFileTTF("../assets/NotoSansCJKsc-Regular.otf", 32.0f, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    font_smaller = io.Fonts->AddFontFromFileTTF(
+		"../assets/NotoSansCJKsc-Regular.otf", 
+		32.0f, nullptr, 
+		io.Fonts->GetGlyphRangesChineseSimplifiedCommon()
+	);
     IM_ASSERT(font_smaller != nullptr);
 
 }
@@ -95,7 +100,10 @@ void draw_gui()
     ImGui::SetNextWindowPos(viewport->WorkPos);
     ImGui::SetNextWindowSize(viewport->WorkSize);
 
-    ImGui::Begin("多项式计算器", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);                          
+    ImGui::Begin("多项式计算器", nullptr, 
+			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove 
+			| ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings 
+			| ImGuiWindowFlags_NoBringToFrontOnFocus);                          
 
     ImGui::Text("你好谢谢小笼包再见");
 

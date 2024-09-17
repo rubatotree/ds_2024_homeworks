@@ -138,7 +138,8 @@ Polynomial polynomial_derivation(Polynomial a)
 	{
 		if(p->term.deg != 0)
 		{
-			PolynomialNode *node = (PolynomialNode*)malloc(sizeof(PolynomialNode));
+			PolynomialNode *node = 
+							(PolynomialNode*)malloc(sizeof(PolynomialNode));
 			node->term.cof = p->term.cof * p->term.deg;
 			node->term.deg = p->term.deg - 1;
 			node->next = NULL;
@@ -363,7 +364,8 @@ void polynomial_print(Polynomial poly)
 		{
 			// ... [+ 5 x^2] ...
 			//        ^
-			if(fabs(p->term.cof - (double)(int)(p->term.cof)) < POLYNOMIAL_EPSILON)
+			if(fabs(p->term.cof - (double)(int)(p->term.cof)) 
+					< POLYNOMIAL_EPSILON)
 			{
 				printf("%d", (int)(p->term.cof));
 			}
