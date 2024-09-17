@@ -32,3 +32,4 @@
 *.app
 
 build/
+/lab1/gui/third_party/GLFW

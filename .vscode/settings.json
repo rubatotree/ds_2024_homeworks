@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "string.h": "c",
+        "polynomial.h": "c",
+        "cmath": "c"
+    }
+}
