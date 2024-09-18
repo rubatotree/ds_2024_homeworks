@@ -77,7 +77,7 @@ void draw_polynomial(char* const format_str)
     poly.data_head = NULL;
     polynomial_build_from_string(&poly, format_str);
     draw_polynomial(poly);
-    polynomial_delete(poly);
+    polynomial_delete(&poly);
 }
 
 void init_gui()

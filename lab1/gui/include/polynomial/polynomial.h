@@ -48,14 +48,18 @@ Polynomial polynomial_derivation(Polynomial a);
 
 Polynomial polynomial_multiply(Polynomial a, Polynomial b);
 
-void polynomial_delete(Polynomial poly);
+void polynomial_delete(Polynomial *poly);
 
 // Analyze the polynomial in a string.
 void polynomial_build_from_string(Polynomial *poly, char *const format_str);
 
 void polynomial_print_raw_list(Polynomial poly);
 
+void polynomial_print_raw_polynomial(Polynomial poly);
+
 void polynomial_print(Polynomial poly);
+
+void polynomial_copy(Polynomial *dest, Polynomial *src);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,5 @@
-set 1
 x+x^3+x^2
-set 2
+add
 0
-add 1 2 3
-print 3
+printf 0
+exit

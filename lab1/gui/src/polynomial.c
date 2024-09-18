@@ -164,15 +164,16 @@ Polynomial polynomial_multiply(Polynomial a, Polynomial b)
 	return c;
 }
 
-void polynomial_delete(Polynomial poly)
+void polynomial_delete(Polynomial *poly)
 {
-	PolynomialNode *p = poly.data_head, *tmp = NULL;
+	PolynomialNode *p = poly->data_head, *tmp = NULL;
 	while(p != NULL)
 	{
 		tmp = p->next;
 		free(p);
 		p = tmp;
 	}
+	poly->data_head = NULL;
 }
 
 // Analyze the polynomial in a string.
@@ -181,6 +182,10 @@ void polynomial_build_from_string(Polynomial *poly, char *const format_str)
 	int length = strlen(format_str);
 	char* str = (char*)malloc(sizeof(char) * (length + 1));
 	strcpy(str, format_str);
+
+	for(int i = 0; i < length; i++)
+		if(str[i] >= 'A' && str[i] <= 'Z')
+			str[i] += 'a' - 'A';
 
 	Polynomial a;
 	a.data_head = NULL;
@@ -335,6 +340,17 @@ void polynomial_print_raw_list(Polynomial poly)
 		printf("%lf \t| %d\n", p->term.cof, p->term.deg);
 }
 
+void polynomial_print_raw_polynomial(Polynomial poly)
+{
+	int n = 0;
+	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)
+		n++;
+	printf("%d", n);
+	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)
+		printf(" %lf %d", p->term.cof, p->term.deg);
+	printf("\n");
+}
+
 void polynomial_print(Polynomial poly)
 {
 	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)
@@ -393,4 +409,12 @@ void polynomial_print(Polynomial poly)
 		printf("0");
 	}
 	printf("\n");
+}
+
+void polynomial_copy(Polynomial *dest, Polynomial *src)
+{
+	if(src == dest) return;
+	polynomial_delete(dest);
+	for(PolynomialNode *p = src->data_head; p != NULL; p = p->next)
+		polynomial_insert(dest, p->term.cof, p->term.deg);
 }

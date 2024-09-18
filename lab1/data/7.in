@@ -1,6 +1,5 @@
-set 1
 x^2+2x+1
-set 2
+mul
 x^3-x+2
-mul 1 2 3
-print 3
+printf 0
+exit
