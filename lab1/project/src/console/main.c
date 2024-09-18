@@ -25,6 +25,7 @@ int invalid_register(int reg)
 // DERI
 // FORMAT
 // [polynomial]     // Read and parse a formatted polynomial.
+// READ				// Read the polynomial as the Array format.
 // There are 65536 registers from 0 to 65535 for you to use.
 // SET [reg]		// Read a line of polynomial and store it in the register.
 // SAVE [reg]		// Save the answer into the register. 
@@ -42,7 +43,6 @@ void input_commands()
 	while(1)
 	{
 		if(echo) printf("> ");
-		fflush(stdin);
 
 		char cmd[STRING_MAXLEN];
 		if(scanf("%s", cmd) == EOF)
@@ -77,6 +77,21 @@ void input_commands()
 			poly.data_head = NULL;
 			polynomial_build_from_string(&poly, polynomial_str);
 			polynomial_registers[reg] = poly;
+		}
+		else if(strcmp(cmd, "READ") == 0)
+		{
+			int n;
+			if(echo) printf("Please input the number of terms:\n");
+			scanf("%d", &n);
+			polynomial_delete(&REG_LAST);
+			for(int i = 0; i < n; i++)
+			{
+				double cof;
+				int deg;
+				scanf("%lf%d", &cof, &deg);
+				polynomial_insert(&REG_LAST, cof, deg);
+			}
+			if(echo) polynomial_print(REG_LAST);
 		}
 		else if(strcmp(cmd, "SAVE") == 0)
 		{
@@ -253,6 +268,10 @@ void input_commands()
 					polynomial_registers[rega], polynomial_registers[regb]);
 			polynomial_delete(&polynomial_registers[regc]);
 			polynomial_registers[regc] = poly;
+			if(&polynomial_registers[regc] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
 		else if(strcmp(cmd, "RSUB") == 0)
 		{
@@ -268,6 +287,10 @@ void input_commands()
 					polynomial_registers[rega], polynomial_registers[regb]);
 			polynomial_delete(&polynomial_registers[regc]);
 			polynomial_registers[regc] = poly;
+			if(&polynomial_registers[regc] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
 		else if(strcmp(cmd, "RMUL") == 0)
 		{
@@ -283,6 +306,10 @@ void input_commands()
 					polynomial_registers[rega], polynomial_registers[regb]);
 			polynomial_delete(&polynomial_registers[regc]);
 			polynomial_registers[regc] = poly;
+			if(&polynomial_registers[regc] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
 		else if(strcmp(cmd, "RDERI") == 0)
 		{
@@ -296,6 +323,10 @@ void input_commands()
 			Polynomial poly = polynomial_derivation(polynomial_registers[rega]);
 			polynomial_delete(&polynomial_registers[regb]);
 			polynomial_registers[regb] = poly;
+			if(&polynomial_registers[regb] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
 		else if(strcmp(cmd, "EXIT") == 0)
 		{
@@ -315,6 +346,10 @@ void input_commands()
 
 int main(int argc, char* argv[])
 {
+	for(int i = 0; i < REGISTER_NUMBER; i++)
+	{
+		polynomial_registers[i].data_head = NULL;
+	}
 	if(argc >= 2)
 	{
 		for(int i = 1; i < argc; i++)

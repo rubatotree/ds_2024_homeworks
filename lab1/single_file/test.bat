@@ -1,6 +1,6 @@
 @echo off
 mkdir .\build
-gcc .\src\main.c -o .\build\main.exe
+gcc .\main.c -o .\build\main.exe
 for /l %%i in (1,1,8) do (
     echo Testcase #%%i:
     echo OUTPUT
