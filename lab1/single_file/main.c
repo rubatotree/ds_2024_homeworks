@@ -5,22 +5,7 @@
 
 // If there are two terms ax^n + bx^n, and |a + b| < EPSILON, 
 // then a + b can be regarded as 0 and we can merge ax^n + bx^n to be 0.
-#define EPSILON 1e-10
-
-#define STRING_MAXLEN 65536
-#define REGISTER_NUMBER 65536
-
-// #define DEBUG
-#ifdef DEBUG
-#define LOG printf
-#else
-#define LOG //
-#endif
-
-typedef enum
-{
-	OK, FAIL
-} Status;
+#define POLYNOMIAL_EPSILON 1e-10
 
 // A term is cof*x^deg.
 typedef struct
@@ -43,24 +28,14 @@ typedef struct Polynomial
 	PolynomialNode *data_head;
 } Polynomial;
 
-Polynomial polynomial_registers[REGISTER_NUMBER];
-
-// View the messages in the console.
-int echo = 1;
-
-int invalid_register(int reg)
-{
-	return reg < 0 || reg > REGISTER_NUMBER;
-}
-
 // compare == 1 => a is outputed front than b
 // compare == 0 => a can be merged with b
 // compare == -1 => a is outputed after b
-int compare(PolynomialNode *a, PolynomialNode *b)
+int polynomial_compare(PolynomialNode *a, PolynomialNode *b)
 {
-	if(a->term.deg >  b->term.deg) return 1;
-	if(a->term.deg == b->term.deg) return 0;
-	if(a->term.deg <  b->term.deg) return -1;
+	if(a->term.deg > b->term.deg) return 1;
+	if(a->term.deg < b->term.deg) return -1;
+	return 0;
 }
 
 // Compress the polynomial. Example: [x + 2x] ==> [3x]
@@ -73,7 +48,7 @@ void polynomial_compress(Polynomial* poly)
 		// *p can be merged with the next node.
 		// While there are nodes to be merged, we shouldn't iterate into
 		// the next node. So we should use 'while' instead of 'if'.
-		while(p->next != NULL && compare(p, p->next) == 0)
+		while(p->next != NULL && polynomial_compare(p, p->next) == 0)
 		{
 			// the node after *p is deleted.
 			PolynomialNode* tmp = p->next;
@@ -88,7 +63,7 @@ void polynomial_compress(Polynomial* poly)
 	
 	// We should first remove the 0s in the head of the list.
 	while(poly->data_head != NULL 
-			&& fabs(poly->data_head->term.cof) < EPSILON)
+			&& fabs(poly->data_head->term.cof) < POLYNOMIAL_EPSILON)
 	{
 		PolynomialNode* tmp = poly->data_head;
 		poly->data_head = poly->data_head->next;
@@ -96,7 +71,7 @@ void polynomial_compress(Polynomial* poly)
 	}
 	for(PolynomialNode *p = poly->data_head; p != NULL; p = p->next)
 	{
-		while(p->next != NULL && fabs(p->next->term.cof) < EPSILON)
+		while(p->next != NULL && fabs(p->next->term.cof) < POLYNOMIAL_EPSILON)
 		{
 			// The node after *p could be removed.
 			PolynomialNode* tmp = p->next;
@@ -110,7 +85,6 @@ void polynomial_compress(Polynomial* poly)
 // O(n).
 void polynomial_insert(Polynomial* poly, double cof, int deg)
 {
-	LOG("# Insert %lf x^%d\n", cof, deg);
 	PolynomialNode *node = (PolynomialNode*)malloc(sizeof(PolynomialNode));
 	node->term.cof = cof;
 	node->term.deg = deg;
@@ -120,7 +94,7 @@ void polynomial_insert(Polynomial* poly, double cof, int deg)
 	{
 		poly->data_head = node;
 	}
-	else if(compare(node, poly->data_head) == 1)	
+	else if(polynomial_compare(node, poly->data_head) == 1)	
 	{
 		// node is in the front of the list
 		node->next = poly->data_head;
@@ -130,7 +104,7 @@ void polynomial_insert(Polynomial* poly, double cof, int deg)
 	{
 		for(PolynomialNode *p = poly->data_head; p != NULL; p = p->next)
 		{
-			if(p->next == NULL || compare(node, p->next) == 1)
+			if(p->next == NULL || polynomial_compare(node, p->next) == 1)
 			{	
 				// *node should just follow after *p
 				// do insert
@@ -188,7 +162,8 @@ Polynomial polynomial_derivation(Polynomial a)
 	{
 		if(p->term.deg != 0)
 		{
-			PolynomialNode *node = (PolynomialNode*)malloc(sizeof(PolynomialNode));
+			PolynomialNode *node = 
+							(PolynomialNode*)malloc(sizeof(PolynomialNode));
 			node->term.cof = p->term.cof * p->term.deg;
 			node->term.deg = p->term.deg - 1;
 			node->next = NULL;
@@ -213,23 +188,28 @@ Polynomial polynomial_multiply(Polynomial a, Polynomial b)
 	return c;
 }
 
-void polynomial_delete(Polynomial poly)
+void polynomial_delete(Polynomial *poly)
 {
-	PolynomialNode *p = poly.data_head, *tmp = NULL;
+	PolynomialNode *p = poly->data_head, *tmp = NULL;
 	while(p != NULL)
 	{
 		tmp = p->next;
 		free(p);
 		p = tmp;
 	}
+	poly->data_head = NULL;
 }
 
 // Analyze the polynomial in a string.
-Status polynomial_build_from_string(Polynomial *poly, char *const format_str)
+void polynomial_build_from_string(Polynomial *poly, char *const format_str)
 {
 	int length = strlen(format_str);
 	char* str = (char*)malloc(sizeof(char) * (length + 1));
 	strcpy(str, format_str);
+
+	for(int i = 0; i < length; i++)
+		if(str[i] >= 'A' && str[i] <= 'Z')
+			str[i] += 'a' - 'A';
 
 	Polynomial a;
 	a.data_head = NULL;
@@ -317,7 +297,6 @@ Status polynomial_build_from_string(Polynomial *poly, char *const format_str)
 
 			if(pos_x == p_term_tail)	// The term is constant.
 			{
-				LOG("# current term [%s|EMPTY]\n", str + p_term_head);
 				deg = 0;
 				if(sscanf(str + p_term_head, "%lf", &cof) != 1)
 				{
@@ -328,21 +307,16 @@ Status polynomial_build_from_string(Polynomial *poly, char *const format_str)
 			}
 			else
 			{
-				LOG("# current term [%s|%s]\n", 
-						str + p_term_head, str + pos_x + 1);
-				
 				if(sscanf(str + p_term_head, "%lf", &cof) != 1)
 				{
 					// When we fail to read the cof, the cof is 1 or -1.
 					if(sign == -1) 
 					{
 						cof = -1.0;
-						LOG("# No cof, default as -1.\n");
 					}
 					else
 					{
 						cof = 1.0;
-						LOG("# No cof, default as 1.\n");
 					}
 				}
 				if(sscanf(str + pos_x + 1, "%d", &deg) != 1)
@@ -350,17 +324,12 @@ Status polynomial_build_from_string(Polynomial *poly, char *const format_str)
 					// When we fail to read the deg but there is a 'x',
 					// it means that the degree is 1.
 					deg = 1;
-					LOG("# No deg, default as 1.\n");
 				}
 			}
 
 			if(!format_fail_flag)
 			{
 				polynomial_insert(poly, cof, deg);
-			}
-			else
-			{
-				LOG("# No x and no cof, ignore this term.\n");
 			}
 
 			// Restore the symbol of the next term which is set to '\0'.
@@ -386,8 +355,6 @@ Status polynomial_build_from_string(Polynomial *poly, char *const format_str)
 		}
 		p_term_tail++;
 	}
-
-	return OK;
 }
 
 void polynomial_print_raw_list(Polynomial poly)
@@ -395,6 +362,17 @@ void polynomial_print_raw_list(Polynomial poly)
 	printf("cof \t\t| deg\n");
 	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)
 		printf("%lf \t| %d\n", p->term.cof, p->term.deg);
+}
+
+void polynomial_print_raw_polynomial(Polynomial poly)
+{
+	int n = 0;
+	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)
+		n++;
+	printf("%d", n);
+	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)
+		printf(" %lf %d", p->term.cof, p->term.deg);
+	printf("\n");
 }
 
 void polynomial_print(Polynomial poly)
@@ -407,7 +385,7 @@ void polynomial_print(Polynomial poly)
 			//      ^
 			printf("+");
 		}
-		if(fabs(p->term.cof + 1) < EPSILON)
+		if(fabs(p->term.cof + 1) < POLYNOMIAL_EPSILON)
 		{
 			// ... [- x^2] ...
 			//       ^
@@ -415,7 +393,7 @@ void polynomial_print(Polynomial poly)
 			if(p->term.deg == 0)
 				printf("1");
 		}
-		else if(fabs(p->term.cof - 1) < EPSILON)
+		else if(fabs(p->term.cof - 1) < POLYNOMIAL_EPSILON)
 		{
 			// ... [+ 1] ...
 			//        ^
@@ -426,7 +404,8 @@ void polynomial_print(Polynomial poly)
 		{
 			// ... [+ 5 x^2] ...
 			//        ^
-			if(fabs(p->term.cof - (double)(int)(p->term.cof)) < EPSILON)
+			if(fabs(p->term.cof - (double)(int)(p->term.cof)) 
+					< POLYNOMIAL_EPSILON)
 			{
 				printf("%d", (int)(p->term.cof));
 			}
@@ -456,22 +435,56 @@ void polynomial_print(Polynomial poly)
 	printf("\n");
 }
 
+void polynomial_copy(Polynomial *dest, Polynomial *src)
+{
+	if(src == dest) return;
+	polynomial_delete(dest);
+	for(PolynomialNode *p = src->data_head; p != NULL; p = p->next)
+		polynomial_insert(dest, p->term.cof, p->term.deg);
+}
+
+
+#define STRING_MAXLEN 65536
+#define REGISTER_NUMBER 65536
+
+Polynomial polynomial_registers[REGISTER_NUMBER];
+#define REG_LAST polynomial_registers[0]
+
+// View the messages in the console.
+int echo = 1, echoformat = 0;
+
+int invalid_register(int reg)
+{
+	return reg < 0 || reg > REGISTER_NUMBER;
+}
 
 // Commands:
+// ADD 
+// SUB
+// MUL
+// DERI
+// FORMAT
+// [polynomial]     // Read and parse a formatted polynomial.
+// READ				// Read the polynomial as the Array format.
 // There are 65536 registers from 0 to 65535 for you to use.
 // SET [reg]		// Read a line of polynomial and store it in the register.
-// PRINT [reg]		// Print the polynomial in the register.
-// ADD [rega] [regb] [regc]		// SET regc = rega + regb
-// SUB [rega] [regb] [regc]		// SET regc = rega - regb
-// MUL [rega] [regb] [regc]		// SET regc = rega * regb
-// DERI [rega] [regb]			// SET regb = rega'
+// SAVE [reg]		// Save the answer into the register. 
+// CLEAR [reg]		// Set a register to 0.
+// COPY [rega] [regb]	// Copy the polynomial in rega into regb.
+// PRINT [reg]			// Print the polynomial in the register.
+// PRINTF [reg]			// Print the polynomial in the register(Math Expr).
+// RADD [rega] [regb] [regc]	// SET regc = rega + regb
+// RSUB [rega] [regb] [regc]	// SET regc = rega - regb
+// RMUL [rega] [regb] [regc]	// SET regc = rega * regb
+// RDERI [rega] [regb]			// SET regb = rega'
 
 void input_commands()
 {
 	while(1)
 	{
-		char cmd[STRING_MAXLEN];
 		if(echo) printf("> ");
+
+		char cmd[STRING_MAXLEN];
 		if(scanf("%s", cmd) == EOF)
 		{
 			break;
@@ -494,7 +507,7 @@ void input_commands()
 			scanf("\n");
 
 			// Delete the existed polynomial.
-			polynomial_delete(polynomial_registers[reg]);
+			polynomial_delete(&polynomial_registers[reg]);
 
 			// Read a line as the polynomial.
 			char polynomial_str[STRING_MAXLEN];
@@ -502,13 +515,79 @@ void input_commands()
 
 			Polynomial poly;
 			poly.data_head = NULL;
-			Status status = polynomial_build_from_string(&poly, polynomial_str);
-			if(status != OK)
+			polynomial_build_from_string(&poly, polynomial_str);
+			polynomial_registers[reg] = poly;
+		}
+		else if(strcmp(cmd, "READ") == 0)
+		{
+			int n;
+			if(echo) printf("Please input the number of terms:\n");
+			scanf("%d", &n);
+			polynomial_delete(&REG_LAST);
+			for(int i = 0; i < n; i++)
 			{
-				if(echo) printf("Failed to read the polynomial.");
+				double cof;
+				int deg;
+				scanf("%lf%d", &cof, &deg);
+				polynomial_insert(&REG_LAST, cof, deg);
+			}
+			if(echo) polynomial_print(REG_LAST);
+		}
+		else if(strcmp(cmd, "SAVE") == 0)
+		{
+			int reg;
+			scanf("%d", &reg);
+			if(invalid_register(reg))
+			{
+				if(echo) printf("Invalid register number.\n");
 				continue;
 			}
-			polynomial_registers[reg] = poly;
+
+			polynomial_delete(&polynomial_registers[reg]);
+			polynomial_copy(&polynomial_registers[reg], &REG_LAST);
+
+			if(echo)
+			{
+				printf("Set register %d = ", reg);
+				polynomial_print(polynomial_registers[reg]);
+			}
+		}
+		else if(strcmp(cmd, "CLEAR") == 0)
+		{
+			int reg;
+			scanf("%d", &reg);
+			if(invalid_register(reg))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+
+			polynomial_delete(&polynomial_registers[reg]);
+
+			if(echo)
+			{
+				printf("Clear register %d\n", reg);
+			}
+		}
+		else if(strcmp(cmd, "COPY") == 0)
+		{
+			int rega, regb;
+			scanf("%d%d", &rega, &regb);
+			if(invalid_register(rega) || invalid_register(regb))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
+
+			polynomial_delete(&polynomial_registers[regb]);
+			polynomial_copy(&polynomial_registers[regb],
+					&polynomial_registers[rega]);
+
+			if(echo)
+			{
+				printf("Set register %d to ", regb);
+				polynomial_print(polynomial_registers[regb]);
+			}
 		}
 		else if(strcmp(cmd, "PRINT") == 0)
 		{
@@ -519,9 +598,103 @@ void input_commands()
 				if(echo) printf("Invalid register number.\n");
 				continue;
 			}
+			polynomial_print_raw_polynomial(polynomial_registers[reg]);
+			polynomial_copy(&REG_LAST, &polynomial_registers[reg]);
+		}
+		else if(strcmp(cmd, "PRINTF") == 0)
+		{
+			int reg;
+			scanf("%d", &reg);
+			if(invalid_register(reg))
+			{
+				if(echo) printf("Invalid register number.\n");
+				continue;
+			}
 			polynomial_print(polynomial_registers[reg]);
+			polynomial_copy(&REG_LAST, &polynomial_registers[reg]);
+		}
+		else if(strcmp(cmd, "FORMAT") == 0)
+		{
+			polynomial_print(REG_LAST);
 		}
 		else if(strcmp(cmd, "ADD") == 0)
+		{
+			char polynomial_str[STRING_MAXLEN];
+			Polynomial poly, poly_new;
+			scanf("\n");
+			fgets(polynomial_str, STRING_MAXLEN - 1, stdin);
+			poly.data_head = NULL;
+			polynomial_build_from_string(&poly, polynomial_str);
+
+			poly_new = polynomial_add(REG_LAST, poly);
+			polynomial_delete(&poly);
+			polynomial_delete(&REG_LAST);
+			REG_LAST = poly_new;
+
+			if(echo)
+			{
+				if(echoformat)
+					polynomial_print(REG_LAST);
+				else
+					polynomial_print_raw_polynomial(REG_LAST);
+			}
+		}
+		else if(strcmp(cmd, "SUB") == 0)
+		{
+			char polynomial_str[STRING_MAXLEN];
+			Polynomial poly, poly_new;
+			scanf("\n");
+			fgets(polynomial_str, STRING_MAXLEN - 1, stdin);
+			poly.data_head = NULL;
+			polynomial_build_from_string(&poly, polynomial_str);
+
+			poly_new = polynomial_substract(REG_LAST, poly);
+			polynomial_delete(&poly);
+			polynomial_delete(&REG_LAST);
+			REG_LAST = poly_new;
+			if(echo)
+			{
+				if(echoformat)
+					polynomial_print(REG_LAST);
+				else
+					polynomial_print_raw_polynomial(REG_LAST);
+			}
+		}
+		else if(strcmp(cmd, "MUL") == 0)
+		{
+			char polynomial_str[STRING_MAXLEN];
+			Polynomial poly, poly_new;
+			scanf("\n");
+			fgets(polynomial_str, STRING_MAXLEN - 1, stdin);
+			poly.data_head = NULL;
+			polynomial_build_from_string(&poly, polynomial_str);
+
+			poly_new = polynomial_multiply(REG_LAST, poly);
+			polynomial_delete(&poly);
+			polynomial_delete(&REG_LAST);
+			REG_LAST = poly_new;
+			if(echo)
+			{
+				if(echoformat)
+					polynomial_print(REG_LAST);
+				else
+					polynomial_print_raw_polynomial(REG_LAST);
+			}
+		}
+		else if(strcmp(cmd, "DERI") == 0)
+		{
+			Polynomial poly = polynomial_derivation(REG_LAST);
+			polynomial_delete(&REG_LAST);
+			REG_LAST = poly;
+			if(echo)
+			{
+				if(echoformat)
+					polynomial_print(REG_LAST);
+				else
+					polynomial_print_raw_polynomial(REG_LAST);
+			}
+		}
+		else if(strcmp(cmd, "RADD") == 0)
 		{
 			int rega, regb, regc;
 			scanf("%d%d%d", &rega, &regb, &regc);
@@ -533,10 +706,14 @@ void input_commands()
 			}
 			Polynomial poly = polynomial_add(
 					polynomial_registers[rega], polynomial_registers[regb]);
-			polynomial_delete(polynomial_registers[regc]);
+			polynomial_delete(&polynomial_registers[regc]);
 			polynomial_registers[regc] = poly;
+			if(&polynomial_registers[regc] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
-		else if(strcmp(cmd, "SUB") == 0)
+		else if(strcmp(cmd, "RSUB") == 0)
 		{
 			int rega, regb, regc;
 			scanf("%d%d%d", &rega, &regb, &regc);
@@ -548,10 +725,14 @@ void input_commands()
 			}
 			Polynomial poly = polynomial_substract(
 					polynomial_registers[rega], polynomial_registers[regb]);
-			polynomial_delete(polynomial_registers[regc]);
+			polynomial_delete(&polynomial_registers[regc]);
 			polynomial_registers[regc] = poly;
+			if(&polynomial_registers[regc] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
-		else if(strcmp(cmd, "MUL") == 0)
+		else if(strcmp(cmd, "RMUL") == 0)
 		{
 			int rega, regb, regc;
 			scanf("%d%d%d", &rega, &regb, &regc);
@@ -563,10 +744,14 @@ void input_commands()
 			}
 			Polynomial poly = polynomial_multiply(
 					polynomial_registers[rega], polynomial_registers[regb]);
-			polynomial_delete(polynomial_registers[regc]);
+			polynomial_delete(&polynomial_registers[regc]);
 			polynomial_registers[regc] = poly;
+			if(&polynomial_registers[regc] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
-		else if(strcmp(cmd, "DERI") == 0)
+		else if(strcmp(cmd, "RDERI") == 0)
 		{
 			int rega, regb;
 			scanf("%d%d", &rega, &regb);
@@ -576,8 +761,12 @@ void input_commands()
 				continue;
 			}
 			Polynomial poly = polynomial_derivation(polynomial_registers[rega]);
-			polynomial_delete(polynomial_registers[regb]);
+			polynomial_delete(&polynomial_registers[regb]);
 			polynomial_registers[regb] = poly;
+			if(&polynomial_registers[regb] == &REG_LAST)
+			{
+				if(echo) polynomial_print(REG_LAST);
+			}
 		}
 		else if(strcmp(cmd, "EXIT") == 0)
 		{
@@ -585,13 +774,22 @@ void input_commands()
 		}
 		else
 		{
-			if(echo) printf("Invalid command.\n");
+
+			int cmdlen = strlen(cmd);
+			fgets(cmd + cmdlen, STRING_MAXLEN - 1 - cmdlen, stdin);
+			polynomial_delete(&REG_LAST);
+			polynomial_build_from_string(&REG_LAST, cmd);
+			if(echo) polynomial_print(REG_LAST);
 		}
 	}
 }
 
 int main(int argc, char* argv[])
 {
+	for(int i = 0; i < REGISTER_NUMBER; i++)
+	{
+		polynomial_registers[i].data_head = NULL;
+	}
 	if(argc >= 2)
 	{
 		for(int i = 1; i < argc; i++)
@@ -599,6 +797,10 @@ int main(int argc, char* argv[])
 			if(strcmp(argv[i], "-q") == 0)
 			{
 				echo = 0;
+			}
+			else if(strcmp(argv[i], "-f") == 0)
+			{
+				echoformat = 1;
 			}
 		}
 	}
