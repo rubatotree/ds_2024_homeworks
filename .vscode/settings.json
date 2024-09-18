@@ -1,8 +1,0 @@
-{
-    "files.associations": {
-        "string.h": "c",
-        "polynomial.h": "c",
-        "cmath": "c"
-    },
-    "cmake.sourceDirectory": "D:/Github/ds_2024_homeworks/lab1/project"
-}
