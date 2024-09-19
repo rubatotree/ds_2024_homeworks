@@ -351,6 +351,79 @@ void polynomial_print_raw_polynomial(Polynomial poly)
 	printf("\n");
 }
 
+void polynomial_tostring(Polynomial poly, char* buffer)
+{
+	buffer[0] = '\0';
+	int buffer_len = 0;
+	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)
+	{
+		if(p != poly.data_head && p->term.cof > 0)
+		{
+			// ... [+ 5x^2] ...
+			//      ^
+			sprintf(buffer + buffer_len, "+");
+			buffer_len++;
+		}
+		if(fabs(p->term.cof + 1) < POLYNOMIAL_EPSILON)
+		{
+			// ... [- x^2] ...
+			//       ^
+			sprintf(buffer + buffer_len, "-");
+			buffer_len++;
+			if(p->term.deg == 0)
+			{
+				sprintf(buffer + buffer_len, "1");
+				buffer_len++;
+			}
+		}
+		else if(fabs(p->term.cof - 1) < POLYNOMIAL_EPSILON)
+		{
+			// ... [+ 1] ...
+			//        ^
+			if(p->term.deg == 0)
+			{
+				sprintf(buffer + buffer_len, "1");
+				buffer_len++;
+			}
+		}
+		else
+		{
+			// ... [+ 5 x^2] ...
+			//        ^
+			if(fabs(p->term.cof - (double)(int)(p->term.cof)) 
+					< POLYNOMIAL_EPSILON)
+			{
+				sprintf(buffer + buffer_len, "%d", (int)(p->term.cof));
+				buffer_len = strlen(buffer);
+			}
+			else
+			{
+				sprintf(buffer + buffer_len, "%.2lf", p->term.cof); 
+				buffer_len = strlen(buffer);
+			}
+		}
+		if(p->term.deg == 1)
+		{
+			// ... [+5x] ...
+			//        ^
+			sprintf(buffer + buffer_len, "x");
+			buffer_len++;
+		}
+		else if(p->term.deg != 0)
+		{
+			// ... [+5x ^2] ...
+			//           ^
+			sprintf(buffer + buffer_len, "x^%d", p->term.deg);
+			buffer_len = strlen(buffer);
+		}
+	}
+	if(poly.data_head == NULL)
+	{
+		// When the polynomial is Empty
+		sprintf(buffer + buffer_len, "0");
+		buffer_len = 1;
+	}
+}
 void polynomial_print(Polynomial poly)
 {
 	for(PolynomialNode *p = poly.data_head; p != NULL; p = p->next)

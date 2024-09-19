@@ -12,6 +12,7 @@
 #include "imgui_impl_opengl3.h"
 #include "polynomial.h"
 #include "window.h"
+#include "style.h"
 #include <stdio.h>
 #define GL_SILENCE_DEPRECATION
 #if defined(IMGUI_IMPL_OPENGL_ES2)
@@ -73,7 +74,7 @@ bool init_glfw()
 GLFWwindow* init_window()
 {
     // Create window with graphics context
-    GLFWwindow* window = glfwCreateWindow(748, 640, "多项式计算器", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(748, 512, "多项式计算器", nullptr, nullptr);
     if (window == nullptr)
         return window;
     glfwMakeContextCurrent(window);
@@ -111,7 +112,7 @@ GLFWwindow* init_window()
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
     //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    ImFont* font = io.Fonts->AddFontFromFileTTF("../assets/NotoSansCJKsc-Regular.otf", 40.0f, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    ImFont* font = io.Fonts->AddFontFromFileTTF("../assets/Hack-Regular.ttf", 40.0f, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
     IM_ASSERT(font != nullptr);
 
     return window;
@@ -128,6 +129,7 @@ int main(int, char**)
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     init_gui();
+    SetupImGuiStyle();
 
     // Main loop
     while (!glfwWindowShouldClose(window))

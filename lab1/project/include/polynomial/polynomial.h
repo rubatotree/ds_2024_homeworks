@@ -57,6 +57,8 @@ void polynomial_print_raw_list(Polynomial poly);
 
 void polynomial_print_raw_polynomial(Polynomial poly);
 
+void polynomial_tostring(Polynomial poly, char* buffer);
+
 void polynomial_print(Polynomial poly);
 
 void polynomial_copy(Polynomial *dest, Polynomial *src);
