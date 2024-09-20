@@ -278,6 +278,10 @@ void event_input(char c)
 				str_buffer[buffer_len - 1] = '+';
 				return;
 			}
+			if(current_buffer_state == INPUT_EMPTY)
+			{
+				return;
+			}
 		}
 		if(c == '-')
 		{
@@ -494,7 +498,13 @@ void draw_gui()
 	if(init_display)
 	{
 		ImGui::PushFont(font_smaller);
-		ImGui::Text("Polynomial Calculator  by rubatotree in USTC DS Lab1");
+		ImGui::Text(
+			"          Polynomial Calculator   by rubatotree\n\n\n"
+			"              ^--^ ____                        \n"
+			"             ( 0w0/    J                       \n"
+			"            \\(  >/<  ~ ~ ~ ~ ~  <*))><  ~ ~ ~  \n"
+		);
+
 		ImGui::PopFont();
 	}
     if(!ans_empty)
@@ -647,8 +657,9 @@ void draw_gui()
 			| ImGuiKey_Equal)
 		|| ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_KeypadAdd)
 		|| ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_Equal)
-				&& buffer_len == 0
-		|| ImGui::IsKeyPressed(ImGuiKey_KeypadAdd) && buffer_len == 0)
+				&& buffer_len == 0 && cur_opr == AC
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadAdd) 
+				&& buffer_len == 0 && cur_opr == AC)
     {
         event_setopr(ADD);
     }
@@ -677,9 +688,11 @@ void draw_gui()
     ImGui::SameLine();
     if(ImGui::Button("+", ImVec2(button_width, button_height))
 		|| ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_Equal)
-				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0)
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) 
+					|| buffer_len == 0 && cur_opr == ADD)
 		|| ImGui::IsKeyPressed(ImGuiKey_KeypadAdd)
-				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0))
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) 
+					|| buffer_len == 0 && cur_opr == ADD))
     {
         event_input('+');
     }
@@ -688,8 +701,10 @@ void draw_gui()
     if(ImGui::Button("()-()", ImVec2(button_width, button_height))
 		|| ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_Minus)
 		|| ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_KeypadSubtract)
-		|| ImGui::IsKeyPressed(ImGuiKey_Minus) && buffer_len == 0
-		|| ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract) && buffer_len == 0)
+		|| ImGui::IsKeyPressed(ImGuiKey_Minus) 
+				&& buffer_len == 0 && cur_opr == AC
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract) 
+				&& buffer_len == 0 && cur_opr == AC)
     {
         event_setopr(SUB);
     }
@@ -718,9 +733,11 @@ void draw_gui()
     ImGui::SameLine();
     if(ImGui::Button("-", ImVec2(button_width, button_height))
 		|| ImGui::IsKeyPressed(ImGuiKey_Minus)
-				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0)
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) 
+					|| buffer_len == 0 && cur_opr == SUB)
 		|| ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract)
-				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0))
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) 
+					|| buffer_len == 0 && cur_opr == SUB))
     {
         event_input('-');
     }
