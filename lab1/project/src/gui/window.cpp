@@ -3,19 +3,29 @@
 #include "window.h"
 #include "polynomial.h"
 
-#define REGISTER_NUMBER 65536
+const int STRING_BUFFER_LENGTH = 65536, REGISTER_NUMBER = 65536;
 
+enum Operations { AC, ADD, SUB, MUL };
+enum InputMode { BUFFER, REGIND };
+enum StatusMsg { NOMSG, READREG, SAVEREG, INVALIDREG };
+enum BufferState { 
+	INPUT_EMPTY, INPUT_COF_SYMB, INPUT_COF_INT, INPUT_COF_DOT,
+	INPUT_COF_DECIMAL, INPUT_X, INPUT_DEG_BEFSYMB, INPUT_DEG_SYMB, 
+	INPUT_DEG_NUM };
+
+char str_buffer[STRING_BUFFER_LENGTH];
 Polynomial polynomial_registers[REGISTER_NUMBER];
-#define REG_LAST polynomial_registers[0]
+Polynomial& REG_LAST = polynomial_registers[0];
+Operations cur_opr = AC;
+bool init_display = true, ans_empty = true;
+InputMode input_mode = BUFFER;
+StatusMsg status_msg = NOMSG;
+BufferState current_buffer_state = INPUT_EMPTY;
+
 int invalid_register(int reg)
 {
 	return reg < 0 || reg > REGISTER_NUMBER;
 }
-
-const int STRING_BUFFER_LENGTH = 65536;
-enum Operations { AC, ADD, SUB, MUL };
-enum InputMode { BUFFER, REGIND };
-enum StatusMsg { NOMSG, READREG, SAVEREG, INVALIDREG };
 
 ImFont* font_smaller;
 
@@ -32,8 +42,7 @@ void init_gui()
     IM_ASSERT(font_smaller != nullptr);
 }
 
-float draw_polynomial_width(char* const format_str, 
-                                            int hide_width = 0)
+float draw_polynomial_width(char* const format_str, int hide_width = 0)
 {
     float width = 0;
     bool deg_flag = false, sgn_flag = false;
@@ -67,6 +76,7 @@ float draw_polynomial_width(char* const format_str,
     ImGui::PopStyleVar();
     return width;
 }
+
 // Assert that the format of the string is correct.
 void draw_polynomial(char* const format_str, int hide_width = 0)
 {
@@ -130,14 +140,60 @@ void format_str_sort(char* format_str)
     polynomial_delete(&poly);
 }
 
-char str_buffer[STRING_BUFFER_LENGTH];
-Operations cur_opr = AC;
-bool ans_empty = true;
-InputMode input_mode = BUFFER;
-StatusMsg status_msg = NOMSG;
+BufferState buffer_state(char* const buffer = str_buffer)
+{
+    int len = strlen(buffer);
+
+	BufferState state = INPUT_EMPTY;
+    for(int i = 0; i < len; i++)
+	{
+		if((state == INPUT_EMPTY || state == INPUT_DEG_NUM || state == INPUT_X
+			|| state == INPUT_COF_INT || state == INPUT_COF_DECIMAL)
+				&& (buffer[i] == '+' || buffer[i] == '-'))
+		{
+			state = INPUT_COF_SYMB;
+		}
+		if((state == INPUT_EMPTY || state == INPUT_COF_SYMB)
+			&& (buffer[i] >= '0' && buffer[i] <= '9'))
+		{
+			state = INPUT_COF_INT;
+		}
+		if(state == INPUT_COF_INT && buffer[i] == '.')
+		{
+			state = INPUT_COF_DOT;
+		}
+		if(state == INPUT_COF_DOT && (buffer[i] >= '0' && buffer[i] <= '9'))
+		{
+			state = INPUT_COF_DECIMAL;
+		}
+		if((state == INPUT_EMPTY || state == INPUT_COF_SYMB
+					|| state == INPUT_COF_INT || state == INPUT_COF_DECIMAL) 
+				&& buffer[i] == 'x')
+		{
+			state = INPUT_X;
+		}
+		if(state == INPUT_X && buffer[i] == '^')
+		{
+			state = INPUT_DEG_BEFSYMB;
+		}
+		if(state == INPUT_DEG_BEFSYMB 
+				&& (buffer[i] == '-' || buffer[i] == '+'))
+		{
+			state = INPUT_DEG_SYMB;
+		}
+		if((state == INPUT_DEG_BEFSYMB || state == INPUT_DEG_SYMB)
+					&& (buffer[i] >= '0' && buffer[i] <= '9'))
+		{
+			state = INPUT_DEG_NUM;
+		}
+	}
+	return state;
+}
 
 void event_input(char c)
 {
+	init_display = false;
+
     int buffer_len = strlen(str_buffer);
     if(status_msg == INVALIDREG) status_msg = NOMSG;
 
@@ -149,52 +205,116 @@ void event_input(char c)
             str_buffer[--buffer_len] = '\0';
         return;
     }
+	if(buffer_len == STRING_BUFFER_LENGTH - 2)
+	{
+		return;
+	}
     if(input_mode == BUFFER)
     {
-		if(buffer_len > 0)
+		if(current_buffer_state == INPUT_COF_DOT && !(c >= '0' && c <= '9'))
 		{
-			if(c == '^')
+			// Remove the '.'
+			str_buffer[--buffer_len] = '\0';
+		}
+		if(c == '^')
+		{
+			if(current_buffer_state == INPUT_DEG_BEFSYMB)
 			{
-				if(str_buffer[buffer_len - 1] == '^')
+				str_buffer[--buffer_len] = '\0';
+				return;
+			}
+			if(current_buffer_state != INPUT_X)
+				return;
+		}
+		if(c >= '0' && c <= '9')
+		{
+			if(current_buffer_state == INPUT_X)
+				str_buffer[buffer_len++] = '^';
+		}
+		if(c == 'x')
+		{
+			if(current_buffer_state != INPUT_EMPTY
+				&& current_buffer_state != INPUT_COF_INT
+			 	&& current_buffer_state != INPUT_COF_DOT
+			 	&& current_buffer_state != INPUT_COF_DECIMAL
+			 	&& current_buffer_state != INPUT_COF_SYMB)
+				return;
+		}
+		if(c == '.')
+		{
+			if(current_buffer_state == INPUT_COF_SYMB 
+					|| current_buffer_state == INPUT_EMPTY)
+			{
+				str_buffer[buffer_len++] = '0';
+				str_buffer[buffer_len] = '\0';
+			}
+			else if(current_buffer_state != INPUT_COF_INT)
+				return;
+		}
+		if(c == '+')
+		{
+			if(current_buffer_state == INPUT_COF_SYMB
+					|| current_buffer_state == INPUT_DEG_SYMB)
+			{
+				if(str_buffer[buffer_len - 1] == '-')
 				{
-					str_buffer[--buffer_len] = '\0';
+					if(current_buffer_state == INPUT_DEG_SYMB)
+					{
+						str_buffer[--buffer_len] = '\0';
+					}
+					else
+					{
+						str_buffer[buffer_len - 1] = '+';
+					}
 					return;
 				}
-				if(!str_buffer[buffer_len - 1] == 'x')
+				if(str_buffer[buffer_len - 1] == '+')
 				{
 					return;
 				}
 			}
-			else if(c >= '0' && c <= '9')
+			if(current_buffer_state == INPUT_DEG_BEFSYMB)
 			{
-				if(str_buffer[buffer_len - 1] == 'x')
-				{
-					str_buffer[buffer_len++] = '^';
-				}
+				str_buffer[buffer_len - 1] = '+';
+				return;
 			}
-			else if(c == 'x')
+		}
+		if(c == '-')
+		{
+			if(current_buffer_state == INPUT_COF_SYMB
+					|| current_buffer_state == INPUT_DEG_SYMB)
 			{
-				if(str_buffer[buffer_len - 1] == 'x')
+				if(str_buffer[buffer_len - 1] == '-')
 				{
+					if (current_buffer_state == INPUT_DEG_SYMB)
+					{
+						str_buffer[--buffer_len] = '\0';
+					}
+					return;
+				}
+				else if(str_buffer[buffer_len - 1] == '+')
+				{
+					str_buffer[buffer_len - 1] = '-';
 					return;
 				}
 			}
 		}
-        str_buffer[buffer_len] = c;
-        str_buffer[buffer_len + 1] = '\0';
+        str_buffer[buffer_len++] = c;
+        str_buffer[buffer_len] = '\0';
     }
     else if(input_mode == REGIND)
     {
         if(c >= '0' && c <= '9' && !(buffer_len == 0 && c == '0'))
         {
-            str_buffer[buffer_len] = c;
-            str_buffer[buffer_len + 1] = '\0';
+            str_buffer[buffer_len++] = c;
+            str_buffer[buffer_len] = '\0';
         }
     }
 }
 
 void event_ac()
 {
+	init_display = false;
     cur_opr = AC;
     input_mode = BUFFER;
     status_msg = NOMSG;
@@ -204,6 +324,7 @@ void event_ac()
 
 void event_ans()
 {
+	init_display = false;
 	if(input_mode != BUFFER) return;
     if(status_msg == INVALIDREG) status_msg = NOMSG;
 	str_buffer[0] = '\0';
@@ -212,6 +333,7 @@ void event_ans()
 
 void event_equal()
 {
+	init_display = false;
     if(status_msg == INVALIDREG) status_msg = NOMSG;
     ans_empty = false;
     if(str_buffer[0] == '\0')
@@ -247,6 +369,7 @@ void event_equal()
 
 void event_ok()
 {
+	init_display = false;
     if(str_buffer[0] == '\0')
     {
         status_msg = NOMSG;
@@ -278,6 +401,7 @@ void event_ok()
 
 void event_setopr(Operations opr)
 {
+	init_display = false;
 	if(input_mode != BUFFER) return;
     if(status_msg == INVALIDREG) status_msg = NOMSG;
     if(ans_empty) 
@@ -290,6 +414,7 @@ void event_setopr(Operations opr)
 
 void event_deri()
 {
+	init_display = false;
 	if(input_mode != BUFFER) return;
     if(status_msg == INVALIDREG) status_msg = NOMSG;
     if(str_buffer[0] != '\0')
@@ -306,6 +431,7 @@ void event_deri()
 
 void event_save()
 {
+	init_display = false;
     if(status_msg == SAVEREG)
     {
         status_msg = NOMSG;
@@ -328,6 +454,7 @@ void event_save()
 
 void event_reg()
 {
+	init_display = false;
     if(status_msg == READREG)
     {
         status_msg = NOMSG;
@@ -356,11 +483,20 @@ void draw_gui()
 			| ImGuiWindowFlags_NoBringToFrontOnFocus);  
 
     int buffer_len = strlen(str_buffer);
+	current_buffer_state = buffer_state();
 
     ImGui::SetCursorPos(ImVec2(0, 0));
     float screen_padding = 16;
     float line1_y = 24;
     float line2_y = line1_y + 56;
+
+    ImGui::SetCursorPos(ImVec2(screen_padding, screen_padding));
+	if(init_display)
+	{
+		ImGui::PushFont(font_smaller);
+		ImGui::Text("Polynomial Calculator  by rubatotree in USTC DS Lab1");
+		ImGui::PopFont();
+	}
     if(!ans_empty)
     {
         char* format_str = new char[STRING_BUFFER_LENGTH];
@@ -395,7 +531,7 @@ void draw_gui()
     }
     else
     {
-        ImGui::Text("");
+        ImGui::Text(" ");
     }
 
     ImGui::SetCursorPosX(screen_padding);
@@ -465,7 +601,7 @@ void draw_gui()
             ImGui::Text("Error: Invalid Register");
             break;
         case NOMSG:
-            ImGui::Text("");
+            ImGui::Text(" ");
             break;
     }
     ImGui::PopFont();
@@ -487,7 +623,6 @@ void draw_gui()
     }
     ImGui::SameLine();
     if(ImGui::Button("ANS", ImVec2(button_width, button_height))
-		|| ImGui::IsKeyPressed(ImGuiKey_UpArrow)
 		|| ImGui::IsKeyPressed(ImGuiKey_A))
     {
 		event_ans();

@@ -74,7 +74,7 @@ bool init_glfw()
 GLFWwindow* init_window()
 {
     // Create window with graphics context
-    GLFWwindow* window = glfwCreateWindow(748, 512, "多项式计算器", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(720, 492, "多项式计算器", nullptr, nullptr);
     if (window == nullptr)
         return window;
     glfwMakeContextCurrent(window);
@@ -126,7 +126,7 @@ int main(int, char**)
         return 1;
 
     GLFWwindow* window = init_window();
-    ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 1.00f);
 
     init_gui();
     SetupImGuiStyle();
