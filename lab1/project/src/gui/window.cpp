@@ -35,9 +35,9 @@ void init_gui()
     ImGuiIO& io = ImGui::GetIO(); 
 
     font_smaller = io.Fonts->AddFontFromFileTTF(
-		"../assets/Hack-Regular.ttf", 
+		"./Hack-Regular.ttf", 
 		24.0f, nullptr, 
-		io.Fonts->GetGlyphRangesChineseSimplifiedCommon()
+		io.Fonts->GetGlyphRangesDefault()
 	);
     IM_ASSERT(font_smaller != nullptr);
 }

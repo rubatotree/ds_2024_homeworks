@@ -76,7 +76,7 @@ GLFWwindow* init_window()
 #endif
     ImGui_ImplOpenGL3_Init(glsl_version);
 
-    ImFont* font = io.Fonts->AddFontFromFileTTF("../assets/Hack-Regular.ttf", 40.0f, nullptr, io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+    ImFont* font = io.Fonts->AddFontFromFileTTF("./Hack-Regular.ttf", 40.0f, nullptr, io.Fonts->GetGlyphRangesDefault());
     IM_ASSERT(font != nullptr);
 
     return window;

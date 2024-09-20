@@ -14,6 +14,8 @@ add_executable(lab1_console
 src/console/main.c
 src/polynomial.c
 )
+
+configure_file(assets/Hack-Regular.ttf ${CMAKE_CURRENT_BINARY_DIR}/Hack-Regular.ttf COPYONLY)
 add_executable(lab1_gui
 src/gui/main.cpp
 src/gui/window.cpp
