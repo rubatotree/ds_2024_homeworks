@@ -151,6 +151,35 @@ void event_input(char c)
     }
     if(input_mode == BUFFER)
     {
+		if(buffer_len > 0)
+		{
+			if(c == '^')
+			{
+				if(str_buffer[buffer_len - 1] == '^')
+				{
+					str_buffer[--buffer_len] = '\0';
+					return;
+				}
+				if(!str_buffer[buffer_len - 1] == 'x')
+				{
+					return;
+				}
+			}
+			else if(c >= '0' && c <= '9')
+			{
+				if(str_buffer[buffer_len - 1] == 'x')
+				{
+					str_buffer[buffer_len++] = '^';
+				}
+			}
+			else if(c == 'x')
+			{
+				if(str_buffer[buffer_len - 1] == 'x')
+				{
+					return;
+				}
+			}
+		}
         str_buffer[buffer_len] = c;
         str_buffer[buffer_len + 1] = '\0';
     }
@@ -171,6 +200,14 @@ void event_ac()
     status_msg = NOMSG;
     str_buffer[0] = '\0';
     ans_empty = true;
+}
+
+void event_ans()
+{
+	if(input_mode != BUFFER) return;
+    if(status_msg == INVALIDREG) status_msg = NOMSG;
+	str_buffer[0] = '\0';
+	polynomial_tostring(REG_LAST, str_buffer);
 }
 
 void event_equal()
@@ -241,6 +278,7 @@ void event_ok()
 
 void event_setopr(Operations opr)
 {
+	if(input_mode != BUFFER) return;
     if(status_msg == INVALIDREG) status_msg = NOMSG;
     if(ans_empty) 
         event_equal();
@@ -252,6 +290,7 @@ void event_setopr(Operations opr)
 
 void event_deri()
 {
+	if(input_mode != BUFFER) return;
     if(status_msg == INVALIDREG) status_msg = NOMSG;
     if(str_buffer[0] != '\0')
     {
@@ -314,7 +353,9 @@ void draw_gui()
     ImGui::Begin("Polynomial Calc", nullptr, 
 			ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove 
 			| ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings 
-			| ImGuiWindowFlags_NoBringToFrontOnFocus);                          
+			| ImGuiWindowFlags_NoBringToFrontOnFocus);  
+
+    int buffer_len = strlen(str_buffer);
 
     ImGui::SetCursorPos(ImVec2(0, 0));
     float screen_padding = 16;
@@ -433,137 +474,204 @@ void draw_gui()
     ImGui::SetCursorPos(ImVec2(8, ImGui::GetWindowHeight() - 8
                         - button_height * 5 - 4 * item_spacing.y));
 
-    if(ImGui::Button("REG", ImVec2(button_width, button_height)))
+    if(ImGui::Button("REG", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_R))
     {
         event_reg();
     }
     ImGui::SameLine();
-    if(ImGui::Button("SAVE", ImVec2(button_width, button_height)))
+    if(ImGui::Button("SAVE", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_S))
     {
         event_save();
     }
     ImGui::SameLine();
-    if(ImGui::Button("ANS", ImVec2(button_width, button_height)))
+    if(ImGui::Button("ANS", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_UpArrow)
+		|| ImGui::IsKeyPressed(ImGuiKey_A))
     {
-        str_buffer[0] = '\0';
-        polynomial_tostring(REG_LAST, str_buffer);
+		event_ans();
     }
     ImGui::SameLine();
-    if(ImGui::Button("DEL", ImVec2(button_width, button_height)))
+    if(ImGui::Button("DEL", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_Backspace)
+		|| ImGui::IsKeyPressed(ImGuiKey_Delete))
     {
         event_input('D');
     }
     ImGui::SameLine();
-    if(ImGui::Button("AC", ImVec2(button_width, button_height)))
+    if(ImGui::Button("AC", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_Escape))
     {
         event_ac();
     }
 
-    if(ImGui::Button("()+()", ImVec2(button_width, button_height)))
+	ImGui::SetCursorPosX(8);
+    if(ImGui::Button("()+()", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiMod_Shift 
+			| ImGuiKey_Equal)
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_KeypadAdd)
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_Equal)
+				&& buffer_len == 0
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadAdd) && buffer_len == 0)
     {
         event_setopr(ADD);
     }
     ImGui::SameLine();
-    if(ImGui::Button("7", ImVec2(button_width, button_height)))
+    if(ImGui::Button("7", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_7)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad7))
     {
         event_input('7');
     }
     ImGui::SameLine();
-    if(ImGui::Button("8", ImVec2(button_width, button_height)))
+    if(ImGui::Button("8", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_8)
+					&& !ImGui::IsKeyDown(ImGuiMod_Shift)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad8))
     {
         event_input('8');
     }
     ImGui::SameLine();
-    if(ImGui::Button("9", ImVec2(button_width, button_height)))
+    if(ImGui::Button("9", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_9)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad9))
     {
         event_input('9');
     }
     ImGui::SameLine();
-    if(ImGui::Button("+", ImVec2(button_width, button_height)))
+    if(ImGui::Button("+", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_Equal)
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0)
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadAdd)
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0))
     {
         event_input('+');
     }
 
-    if(ImGui::Button("()-()", ImVec2(button_width, button_height)))
+	ImGui::SetCursorPosX(8);
+    if(ImGui::Button("()-()", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_Minus)
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Ctrl | ImGuiKey_KeypadSubtract)
+		|| ImGui::IsKeyPressed(ImGuiKey_Minus) && buffer_len == 0
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract) && buffer_len == 0)
     {
         event_setopr(SUB);
     }
     ImGui::SameLine();
-    if(ImGui::Button("4", ImVec2(button_width, button_height)))
+    if(ImGui::Button("4", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_4)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad4))
     {
         event_input('4');
     }
     ImGui::SameLine();
-    if(ImGui::Button("5", ImVec2(button_width, button_height)))
+    if(ImGui::Button("5", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_5)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad5))
     {
         event_input('5');
     }
     ImGui::SameLine();
-    if(ImGui::Button("6", ImVec2(button_width, button_height)))
+    if(ImGui::Button("6", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_6)
+					&& !ImGui::IsKeyDown(ImGuiMod_Shift)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad6))
     {
         event_input('6');
     }
     ImGui::SameLine();
-    if(ImGui::Button("-", ImVec2(button_width, button_height)))
+    if(ImGui::Button("-", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_Minus)
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0)
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadSubtract)
+				&& !(ImGui::IsKeyDown(ImGuiMod_Ctrl) || buffer_len == 0))
     {
         event_input('-');
     }
 
-    if(ImGui::Button("()*()", ImVec2(button_width, button_height)))
+	ImGui::SetCursorPosX(8);
+    if(ImGui::Button("()*()", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_8)
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadMultiply))
     {
         event_setopr(MUL);
     }
     ImGui::SameLine();
-    if(ImGui::Button("1", ImVec2(button_width, button_height)))
+    if(ImGui::Button("1", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_1)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad1))
     {
         event_input('1');
     }
     ImGui::SameLine();
-    if(ImGui::Button("2", ImVec2(button_width, button_height)))
+    if(ImGui::Button("2", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_2)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad2))
     {
         event_input('2');
     }
     ImGui::SameLine();
-    if(ImGui::Button("3", ImVec2(button_width, button_height)))
+    if(ImGui::Button("3", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_3)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad3))
     {
         event_input('3');
     }
     ImGui::SameLine();
-    if(ImGui::Button("^", ImVec2(button_width, button_height)))
+    if(ImGui::Button("^", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyChordPressed(ImGuiMod_Shift | ImGuiKey_6))
     {
         event_input('^');
     }
 
-    if(ImGui::Button("()'", ImVec2(button_width, button_height)))
+	ImGui::SetCursorPosX(8);
+    if(ImGui::Button("()'", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_Apostrophe))
     {
         event_deri();
     }
     ImGui::SameLine();
-    if(ImGui::Button("0", ImVec2(button_width, button_height)))
+    if(ImGui::Button("0", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_0)
+		|| ImGui::IsKeyPressed(ImGuiKey_Keypad0))
     {
         event_input('0');
     }
     ImGui::SameLine();
-    if(ImGui::Button(".", ImVec2(button_width, button_height)))
+    if(ImGui::Button(".", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_Period)
+		|| ImGui::IsKeyPressed(ImGuiKey_KeypadDecimal))
     {
         event_input('.');
     }
     ImGui::SameLine();
-    if(ImGui::Button("x", ImVec2(button_width, button_height)))
+    if(ImGui::Button("x", ImVec2(button_width, button_height))
+		|| ImGui::IsKeyPressed(ImGuiKey_X))
     {
         event_input('x');
     }
     ImGui::SameLine();
     if(input_mode == BUFFER)
     {
-        if(ImGui::Button("=", ImVec2(button_width, button_height)))
+        if(ImGui::Button("=", ImVec2(button_width, button_height))
+			|| ImGui::IsKeyPressed(ImGuiKey_Equal)
+					&& !ImGui::IsKeyDown(ImGuiMod_Shift) 
+			|| ImGui::IsKeyPressed(ImGuiKey_KeypadEqual)
+			|| ImGui::IsKeyPressed(ImGuiKey_Enter)
+			|| ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))
         {
             event_equal();
         }
     }
     else if(input_mode == REGIND)
     {
-        if(ImGui::Button("OK", ImVec2(button_width, button_height)))
+        if(ImGui::Button("OK", ImVec2(button_width, button_height))
+			|| ImGui::IsKeyPressed(ImGuiKey_Equal)
+					&& !ImGui::IsKeyDown(ImGuiMod_Shift) 
+			|| ImGui::IsKeyPressed(ImGuiKey_KeypadEqual)
+			|| ImGui::IsKeyPressed(ImGuiKey_Enter)
+			|| ImGui::IsKeyPressed(ImGuiKey_KeypadEnter))
         {
             event_ok();
         }
