@@ -447,7 +447,6 @@ void event_save()
     {
         if(str_buffer[0] != '\0' && !(cur_opr == AC && !ans_empty))
         {
-            cur_opr = AC;
             event_equal();
         }
         str_buffer[0] = '\0';
