@@ -230,7 +230,7 @@ void event_equal()
 			poly_new = polynomial_add(REG_LAST, poly);
             break;
         case SUB:
-			poly_new = polynomial_substract(REG_LAST, poly);
+			poly_new = polynomial_subtract(REG_LAST, poly);
             break;
         case MUL:
 			poly_new = polynomial_multiply(REG_LAST, poly);

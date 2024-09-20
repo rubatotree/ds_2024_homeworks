@@ -111,7 +111,7 @@ Polynomial polynomial_add(Polynomial a, Polynomial b)
 	return c;
 }
 
-Polynomial polynomial_substract(Polynomial a, Polynomial b)
+Polynomial polynomial_subtract(Polynomial a, Polynomial b)
 {
 	// Simply add each term of a and each negative term of b together.
 	// And merge the terms with the same degree.

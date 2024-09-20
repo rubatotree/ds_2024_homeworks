@@ -42,7 +42,7 @@ void polynomial_insert(Polynomial* poly, double cof, int deg);
 
 Polynomial polynomial_add(Polynomial a, Polynomial b);
 
-Polynomial polynomial_substract(Polynomial a, Polynomial b);
+Polynomial polynomial_subtract(Polynomial a, Polynomial b);
 
 Polynomial polynomial_derivation(Polynomial a);
 

@@ -208,7 +208,7 @@ void input_commands()
 			poly.data_head = NULL;
 			polynomial_build_from_string(&poly, polynomial_str);
 
-			poly_new = polynomial_substract(REG_LAST, poly);
+			poly_new = polynomial_subtract(REG_LAST, poly);
 			polynomial_delete(&poly);
 			polynomial_delete(&REG_LAST);
 			REG_LAST = poly_new;
@@ -283,7 +283,7 @@ void input_commands()
 				if(echo) printf("Invalid register number.\n");
 				continue;
 			}
-			Polynomial poly = polynomial_substract(
+			Polynomial poly = polynomial_subtract(
 					polynomial_registers[rega], polynomial_registers[regb]);
 			polynomial_delete(&polynomial_registers[regc]);
 			polynomial_registers[regc] = poly;
