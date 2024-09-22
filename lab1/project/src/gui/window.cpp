@@ -201,6 +201,13 @@ void event_input(char c)
     {
         if(buffer_len > 0)
             str_buffer[--buffer_len] = '\0';
+        else
+        {
+            if(input_mode == BUFFER)
+            {
+                cur_opr = AC;
+            }
+        }
         while(buffer_len > 0 && str_buffer[buffer_len - 1] == '^')
             str_buffer[--buffer_len] = '\0';
         return;
