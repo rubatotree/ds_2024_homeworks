@@ -2,13 +2,14 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 
 #define MAX 200010
 
 // Math functions
 int random_int()
 {
-	return rand() * RAND_MAX + rand();
+	return abs(rand() * RAND_MAX + rand());
 }
 
 int random_range(int l, int r)
@@ -24,17 +25,17 @@ typedef struct CustNode
 {
 	TimeType arrtime, durtime, leavetime;
 	AmountType amount; 
-	IndexType next;
-} CustNode, DataType;
+	struct CustNode* next;
+} CustNode, *DataType;
 
 // Data to input
 size_t CHUNKSIZE = 4;
-AmountType total;
+AmountType total_initial;
 TimeType closetime;
 TimeType  durtime_min,  durtime_max,
 		 interval_min, interval_max;
 AmountType amount_min,   amount_max;
-size_t event_number;
+size_t event_number, day_number;
 
 ///	Cycle Queue
 typedef struct CyQueue
@@ -144,38 +145,106 @@ DataType CyQueue_Front(CyQueue* q)
 	return q->data[q->head];
 }
 
-/*
-void CyQueue_PrintData(DataType data)
-{
-	printf("%d", data);
-}
-
-void CyQueue_Print(CyQueue* q)
-{
-	size_t size = CyQueue_Size(q);
-	printf("[%u/%u] ", size, q->maxsize);
-	for(int i = 0; i < size; i++)
-	{
-		CyQueue_PrintData(CyQueue_At(q, i));
-		printf(" ");
-	}
-	printf("\n");
-}
-*/
-
 // Functions
 CustNode eventlist[MAX];
+AmountType total_amount = 0;
+CustNode* eventlist_head = NULL;
+CustNode* eventlist_tail = NULL;
 
-void eventlist_GenerateDay1()
+// INITIALIZE eventlist_tail BEFORE CALLING
+void eventlist_Insert(CustNode node)
 {
+	if(eventlist_tail == NULL)
+	{
+		eventlist[0] = node;
+		eventlist_head = &eventlist[0];
+		eventlist_tail = &eventlist[0];
+	}
+	else if(eventlist_tail->arrtime <= node.arrtime)
+	{
+		// 贪心尾插优先
+		assert((eventlist_tail - eventlist + 1) < MAX);
+		eventlist_tail->next = eventlist_tail + 1;
+		eventlist_tail += 1;
+		(*eventlist_tail) = node;
+	}
+	else if(eventlist_head->arrtime >= node.arrtime && (int)(eventlist_head - eventlist) > 0)
+	{
+		// 次之先填充头部
+		eventlist[0] = node;
+		eventlist[0].next = eventlist_head;
+		eventlist_head = &eventlist[0];
+	}
+	else
+	{
+		CustNode* prev = NULL;
+		for(CustNode* cur = eventlist_head; cur != NULL; cur = cur->next)
+		{
+			if(cur->arrtime > node.arrtime)
+			{
+				// 插入 cur 前
+				if(prev != NULL && (int)(cur - prev) > 1)
+				{
+					IndexType idx = prev + 1 - eventlist;
+					eventlist[idx] = node;
+					eventlist[idx].next = cur;
+					if(cur == eventlist_head) 
+						eventlist_head = &eventlist[idx];
+					else prev->next = &eventlist[idx];
+					break;
+				}
+				else
+				{
+					// 把事件表中cur往后的元素都后移一位，直到遇到空闲空间
+					CustNode* nearest_idle = cur;
+					while(nearest_idle->next == nearest_idle + 1)
+						nearest_idle = nearest_idle->next;
+					nearest_idle += 1;	// 得到最近的空闲位置
+					assert(nearest_idle - eventlist <= MAX);
+					// 将 [cur, nearest_idle) 整体右移一位
+					// 将 nearest_idle 移到 cur 的位置
+					if((int)(eventlist_tail - nearest_idle + 1) <= 0)
+						eventlist_tail += 1;
+					while((int)(nearest_idle - cur) > 0)
+					{
+						*nearest_idle = *(nearest_idle - 1); // Copy
+						
+						// 如果被移动的 prev 也在这段连续空间里，那么需要移动 next
+						// 但如果不在的话（也就是prev变量了），那么它对应的 next 值本来就会被填充，
+						// 也就不需要改 next
+						if((int)(nearest_idle - 2 - cur) >= 0)
+							(nearest_idle - 2)->next += 1;
+						nearest_idle -= 1;
+					}
+					(*cur) = node;
+					cur->next = cur + 1;
+					break;
+				}
+			}
+			prev = cur;
+		}
+	}
+}
+
+void eventlist_Generate()
+{
+	eventlist_tail = eventlist_head;
+	if(eventlist_tail != NULL)
+	{
+		while(eventlist_tail->next != NULL)
+			eventlist_tail = eventlist_tail->next;
+	}
+
 	TimeType arrtime = 0;
 	for(IndexType i = 0; i < event_number; i++)
 	{
-		eventlist[i].next = i + 1;
-		eventlist[i].arrtime = arrtime;
-		eventlist[i].durtime = random_range(durtime_min, durtime_max + 1);
-		eventlist[i].amount = random_range(amount_min, amount_max + 1);
-		eventlist[i].leavetime = -1;
+		CustNode node;
+		node.next = NULL;
+		node.arrtime = arrtime;
+		node.durtime = random_range(durtime_min, durtime_max + 1);
+		node.amount = random_range(amount_min, amount_max + 1);
+		node.leavetime = -1;
+		eventlist_Insert(node);
 
 		TimeType interval = random_range(interval_min, interval_max + 1);
 		arrtime += interval;
@@ -185,23 +254,169 @@ void eventlist_GenerateDay1()
 // Main Program
 void eventlist_output()
 {
+	double sum_stay = 0;
 	printf("Event \t| Arrtime \t| Durtime \t| Amount \t| Leavetime\n");
-	for(IndexType i = 0; i < event_number; i++)
+	for(CustNode* i = eventlist_head; i != NULL; i = i->next)
 	{
-		printf("%u \t| %u\t| %u\t| %d\t| %u\t\n", i, eventlist[i].arrtime, eventlist[i].durtime, eventlist[i].amount, eventlist[i].leavetime);
+		printf("%4u \t| %8d\t| %8d\t| %8d\t| %d\n", (int)(i - eventlist), i->arrtime, i->durtime, i->amount, i->leavetime, i->next);
+		TimeType waittime = i->leavetime - i->arrtime;
+		if(waittime < 0) waittime = 0; // arrtime > closetime
+		sum_stay += waittime;
 	}
+	printf("Average stay time: %lf (min).\n", sum_stay / event_number);
+}
+
+#define ECHO_EVENT printf("Process Event #%d:\nArrive Time:%d\nTime:%d -> %d\nTotal Amount:%d -> %d\nMain Queue: ", (int)(current - eventlist), current->arrtime, current_time - current->durtime, current_time, total_amount - current->amount, total_amount); size_t __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
+
+CyQueue* simulate()
+{
+	CyQueue *qmain = CyQueue_Init(), 
+			*qwait = CyQueue_Init(),
+			*qunfinished = CyQueue_Init();
+
+	for(CustNode* i = eventlist_head; i != NULL; i = i->next)
+	{
+		CyQueue_Push(qmain, i);
+	}
+
+	TimeType current_time = 0;
+	while(!CyQueue_Empty(qmain))
+	{
+		CustNode *current = CyQueue_Pop(qmain);
+		if(current->arrtime > current_time)
+			current_time = current->arrtime;
+		if(current_time >= closetime)
+		{
+			CyQueue_Push(qmain, current);
+			break;
+		}
+		if(current->amount < 0 && total_amount + current->amount < 0)
+		{
+			// 银行存款不足，排入 wait 队列
+			CyQueue_Push(qwait, current);
+			continue;
+		}
+		// 正常办理业务
+		AmountType prev_amount = total_amount;
+		current_time += current->durtime;
+		if(current_time >= closetime)
+		{
+			CyQueue_Push(qmain, current);
+			break;
+		}
+		total_amount += current->amount;
+		current->leavetime = current_time;
+		
+		ECHO_EVENT;
+
+		if(total_amount > 0)
+		{
+			// 处理 wait 队列
+			size_t wait_len = CyQueue_Size(qwait);
+			int break_flag = 0;
+			for(IndexType i = 0; i < wait_len; i++)
+			{
+				// 无需判断队空，因为至多处理 wait_len 个元素
+				current = CyQueue_Pop(qwait);
+				if(total_amount + current->amount >= 0)
+				{
+					current_time += current->durtime;
+					if(current_time >= closetime)
+					{
+						CyQueue_Push(qwait, current);
+						break_flag = 1;
+						break;
+					}
+					total_amount += current->amount;
+					current->leavetime = current_time;
+					ECHO_EVENT;
+					if(total_amount <= prev_amount)
+					{
+						// 不可能再有满足者
+						break;
+					}
+				}
+				else
+				{
+					CyQueue_Push(qwait, current);
+				}
+			}
+			if(break_flag) break;
+		}
+	}
+	// 银行营业结束后，所有客户立即离开银行
+	while(!CyQueue_Empty(qmain))
+	{
+		CustNode *current = CyQueue_Pop(qmain);
+		current->leavetime = closetime;
+		CyQueue_Push(qunfinished, current);
+	}
+	while(!CyQueue_Empty(qwait))
+	{
+		CustNode *current = CyQueue_Pop(qwait);
+		current->leavetime = closetime;
+		CyQueue_Push(qunfinished, current);
+	}
+
+	CyQueue_Delete(qmain);
+	CyQueue_Delete(qwait);
+	return qunfinished;
+}
+
+void process_unfinished(CyQueue *q)
+{
+	// 使用选择排序处理 next 表
+	// O(n^2)
+	eventlist_head = NULL;
+	printf("Unfinished events: ");
+	while(!CyQueue_Empty(q))
+	{
+		CustNode *node_max = NULL;
+		size_t size = CyQueue_Size(q);
+		// 每次选择一个到达最晚的
+		for(IndexType i = 0; i < size; i++)
+		{
+			CustNode *current = CyQueue_Pop(q);
+			if(node_max == NULL) node_max = current;
+			else if(current->arrtime > node_max->arrtime)
+			{
+				CyQueue_Push(q, node_max);
+				node_max = current;
+			}
+			else
+			{
+				CyQueue_Push(q, current);
+			}
+		}
+		node_max->next = eventlist_head;
+		eventlist_head = node_max;
+
+		node_max->leavetime = -1;
+		printf("%d ", (int)(node_max - eventlist));
+	}
+	printf("\n\n");
+	CyQueue_Delete(q);
 }
 
 void process()
 {
-	eventlist_GenerateDay1();
-	eventlist_output();
+	total_amount = total_initial;
+	for(size_t i = 1; i <= day_number; i++)
+	{
+		printf("Day #%d:\n", i);
+		eventlist_Generate();
+		CyQueue *qunfinished = simulate();
+		eventlist_output();
+
+		process_unfinished(qunfinished);
+	}
 }
 
 int main()
 {
+	srand(time(NULL));
 	printf("Please input the total amount:\n");
-	scanf("%d\n", &total);
+	scanf("%d\n", &total_initial);
 	printf("Please input the close time:\n");
 	scanf("%d\n", &closetime);
 	printf("Please input the min&max of durtime:\n");
@@ -212,8 +427,11 @@ int main()
 	scanf("%d%d\n", &interval_min, &interval_max);
 	printf("Please input the CHUNKSIZE:\n");
 	scanf("%d\n", &CHUNKSIZE);
-	printf("Please input the number of events in day 1\n");
+	printf("Please input the number of events per day:\n");
 	scanf("%u", &event_number);
+	printf("Please input the number days:\n");
+	scanf("%u", &day_number);
+	printf("\n=== START SIMULATION ===\n");
 	process();
 	return 0;
 }
