@@ -21,6 +21,7 @@ int random_range(int l, int r)
 typedef int TimeType;
 typedef int AmountType;
 typedef unsigned int IndexType;
+typedef unsigned int SizeType;
 typedef struct CustNode
 {
 	TimeType arrtime, durtime, leavetime;
@@ -29,18 +30,18 @@ typedef struct CustNode
 } CustNode, *DataType;
 
 // Data to input
-size_t CHUNKSIZE = 4;
+SizeType CHUNKSIZE = 4;
 AmountType total_initial;
 TimeType closetime;
 TimeType  durtime_min,  durtime_max,
 		 interval_min, interval_max;
 AmountType amount_min,   amount_max;
-size_t day_number;
+SizeType day_number;
 
 ///	Cycle Queue
 typedef struct CyQueue
 {
-	size_t maxsize;
+	SizeType maxsize;
 	IndexType head, tail;
 	int full_flag;
 	DataType* data;
@@ -48,7 +49,7 @@ typedef struct CyQueue
 
 CyQueue* CyQueue_Init()
 {
-	size_t size = CHUNKSIZE;
+	SizeType size = CHUNKSIZE;
 	CyQueue* q = (CyQueue*)malloc(sizeof(CyQueue));
 	q->maxsize = size;
 	q->head = 0;
@@ -70,7 +71,7 @@ void CyQueue_Clear(CyQueue* q)
 	q->full_flag = 0;
 }
 
-size_t CyQueue_Size(CyQueue* q)
+SizeType CyQueue_Size(CyQueue* q)
 {
 	if(q->tail == q->head && q->full_flag)
 		return q->maxsize;
@@ -90,12 +91,12 @@ DataType CyQueue_At(CyQueue* q, IndexType ind)
 	return q->data[(q->head + ind) % q->maxsize];
 }
 
-void CyQueue_Resize(CyQueue* q, size_t newsize)
+void CyQueue_Resize(CyQueue* q, SizeType newsize)
 {
 	// The overflowed data will be deleted.
 	DataType* newdata = (DataType*)malloc(newsize * sizeof(DataType));
-	size_t size = CyQueue_Size(q);
-	size_t copy_size = newsize < size ? newsize : size;
+	SizeType size = CyQueue_Size(q);
+	SizeType copy_size = newsize < size ? newsize : size;
 	for(IndexType i = 0; i < copy_size; i++)
 		newdata[i] = CyQueue_At(q, i);
 	q->head = 0;
@@ -118,7 +119,7 @@ void CyQueue_Resize(CyQueue* q, size_t newsize)
 
 void CyQueue_Push(CyQueue* q, DataType data)
 {
-	size_t size = CyQueue_Size(q);
+	SizeType size = CyQueue_Size(q);
 	if(size == q->maxsize)
 	{
 		// Resize First
@@ -274,8 +275,8 @@ void eventlist_output(int print_avg_stay)
 		printf("Average stay time: %lf (min).\n", sum_stay / eventn);
 }
 
-#define ECHO_EVENT printf("Process Event #%d:\nArrive Time:%d\nTime:%d -> %d\nTotal Amount:%d -> %d\nMain Queue: ", (int)(current - eventlist), current->arrtime, current_time - current->durtime, current_time, total_amount - current->amount, total_amount); size_t __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
-#define ECHO_FAIL printf("Process Event #%d but Fail(%d/%d)\nMain Queue: ", (int)(current - eventlist), -current->amount, total_amount); size_t __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
+#define ECHO_EVENT printf("Process Event #%d:\nArrive Time:%d\nTime:%d -> %d\nTotal Amount:%d -> %d\nMain Queue: ", (int)(current - eventlist), current->arrtime, current_time - current->durtime, current_time, total_amount - current->amount, total_amount); SizeType __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
+#define ECHO_FAIL printf("Process Event #%d but Fail(%d/%d)\nMain Queue: ", (int)(current - eventlist), -current->amount, total_amount); SizeType __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
 
 CyQueue* simulate()
 {
@@ -323,7 +324,7 @@ CyQueue* simulate()
 		{
 			// 处理 wait 队列
 			printf("[Process the wait queue]\n");
-			size_t wait_len = CyQueue_Size(qwait);
+			SizeType wait_len = CyQueue_Size(qwait);
 			int break_flag = 0;
 			for(IndexType i = 0; i < wait_len; i++)
 			{
@@ -384,7 +385,7 @@ void process_unfinished(CyQueue *q)
 	while(!CyQueue_Empty(q))
 	{
 		CustNode *node_max = NULL;
-		size_t size = CyQueue_Size(q);
+		SizeType size = CyQueue_Size(q);
 		// 每次选择一个编号最大的（当然是到达最晚的）
 		// 这里之前因为优先选择到达最晚的，导致相同到达时间的会出现
 		// 编号偏后的 next 指向编号偏前的值，从而使得移位出错，造成死循环。
@@ -418,9 +419,9 @@ void process_unfinished(CyQueue *q)
 void process()
 {
 	total_amount = total_initial;
-	for(size_t i = 1; i <= day_number; i++)
+	for(SizeType i = 1; i <= day_number; i++)
 	{
-		printf("--- Day #%lu ---\n", i);
+		printf("--- Day #%u ---\n", i);
 		eventlist_Generate();
 		eventlist_output(0);
 		CyQueue *qunfinished = simulate();
@@ -444,9 +445,9 @@ int main()
 	printf("Please input the min&max of interval:\n");
 	scanf("%d%d\n", &interval_min, &interval_max);
 	printf("Please input the CHUNKSIZE:\n");
-	scanf("%lu\n", &CHUNKSIZE);
+	scanf("%u\n", &CHUNKSIZE);
 	printf("Please input the number days:\n");
-	scanf("%lu", &day_number);
+	scanf("%u", &day_number);
 	printf("\n=== START SIMULATION ===\n");
 	process();
 	return 0;
