@@ -6,7 +6,7 @@
 
 #define MAX 200010
 
-// Math functions
+// Random functions
 int random_int()
 {
 	return abs(rand() * RAND_MAX + rand());
@@ -38,7 +38,7 @@ TimeType  durtime_min,  durtime_max,
 AmountType amount_min,   amount_max;
 SizeType day_number;
 
-///	Cycle Queue
+// Cycle Queue
 typedef struct CyQueue
 {
 	SizeType maxsize;
@@ -148,7 +148,7 @@ DataType CyQueue_Front(CyQueue* q)
 	return q->data[q->head];
 }
 
-// Functions
+// Event List
 CustNode eventlist[MAX];
 AmountType total_amount = 0;
 CustNode* eventlist_head = NULL;
@@ -256,7 +256,6 @@ void eventlist_Generate()
 	}
 }
 
-// Main Program
 void eventlist_output(int print_avg_stay)
 {
 	double sum_stay = 0;
@@ -264,7 +263,7 @@ void eventlist_output(int print_avg_stay)
 	int eventn = 0;
 	for(CustNode* i = eventlist_head; i != NULL; i = i->next)
 	{
-		printf("%4u \t| %8d\t| %8d\t| %8d\t| %d\n", (int)(i - eventlist), i->arrtime, i->durtime, i->amount, i->leavetime);
+		printf("%4u \t| %8d\t| %8d\t| %+8d\t| %d\n", (int)(i - eventlist), i->arrtime, i->durtime, i->amount, i->leavetime);
 		TimeType waittime = i->leavetime - i->arrtime;
 		if(waittime < 0) waittime = 0; // arrtime > closetime
 		sum_stay += waittime;
@@ -275,19 +274,36 @@ void eventlist_output(int print_avg_stay)
 		printf("Average stay time: %lf (min).\n", sum_stay / eventn);
 }
 
-#define ECHO_EVENT printf("Process Event #%d:\nArrive Time:%d\nTime:%d -> %d\nTotal Amount:%d -> %d\nMain Queue: ", (int)(current - eventlist), current->arrtime, current_time - current->durtime, current_time, total_amount - current->amount, total_amount); SizeType __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
-#define ECHO_FAIL printf("Process Event #%d but Fail(%d/%d)\nMain Queue: ", (int)(current - eventlist), -current->amount, total_amount); SizeType __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
+#define ECHO_EVENT \
+		printf("Process Event #%d (%+d):\nArrive Time:%d\nTime:%d -> %d\nTotal Amount:%d -> %d\nMain Queue: ", (int)(current - eventlist), current->amount, current->arrtime, current_time - current->durtime, current_time, total_amount - current->amount, total_amount);\
+		SizeType __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait);\
+		if (__qmain_size == 0) printf("<EMPTY>");\
+		for(IndexType __i = 0; __i < __qmain_size; __i++)\
+			printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist));\
+		printf("\nWait Queue: ");\
+		if (__qwait_size == 0) printf("<EMPTY>");\
+		for(IndexType __i = 0; __i < __qwait_size; __i++)\
+			printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist));\
+		printf("\n\n");
+#define ECHO_FAIL \
+		printf("Process Event #%d (%+d) but Fail (there's only %d)\nMain Queue: ", (int)(current - eventlist), current->amount, total_amount); \
+		SizeType __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); \
+		if (__qmain_size == 0) printf("<EMPTY>");\
+		for(IndexType __i = 0; __i < __qmain_size; __i++) \
+			printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); \
+		printf("\nWait Queue: "); \
+		if (__qwait_size == 0) printf("<EMPTY>");\
+		for(IndexType __i = 0; __i < __qwait_size; __i++) \
+		printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); \
+		printf("\n\n");
 
 CyQueue* simulate()
 {
 	CyQueue *qmain = CyQueue_Init(), 
-			*qwait = CyQueue_Init(),
-			*qunfinished = CyQueue_Init();
+			*qwait = CyQueue_Init();
 
 	for(CustNode* i = eventlist_head; i != NULL; i = i->next)
-	{
 		CyQueue_Push(qmain, i);
-	}
 
 	TimeType current_time = 0;
 	while(!CyQueue_Empty(qmain))
@@ -359,6 +375,7 @@ CyQueue* simulate()
 		}
 	}
 	// 银行营业结束后，所有客户立即离开银行
+	CyQueue *qunfinished = CyQueue_Init();
 	while(!CyQueue_Empty(qmain))
 	{
 		CustNode *current = CyQueue_Pop(qmain);
