@@ -74,7 +74,9 @@ size_t CyQueue_Size(CyQueue* q)
 {
 	if(q->tail == q->head && q->full_flag)
 		return q->maxsize;
-	return (q->tail - q->head + q->maxsize) % q->maxsize;
+	// (int - int + uint) % uint != (int + uint - int) % uint
+	// evil data type bug
+	return ((int)q->tail + (int)q->maxsize - (int)q->head) % (int)q->maxsize;
 }
 
 int CyQueue_Empty(CyQueue* q)
@@ -261,7 +263,7 @@ void eventlist_output(int print_avg_stay)
 	int eventn = 0;
 	for(CustNode* i = eventlist_head; i != NULL; i = i->next)
 	{
-		printf("%4u \t| %8d\t| %8d\t| %8d\t| %d\n", (int)(i - eventlist), i->arrtime, i->durtime, i->amount, i->leavetime, i->next);
+		printf("%4u \t| %8d\t| %8d\t| %8d\t| %d\n", (int)(i - eventlist), i->arrtime, i->durtime, i->amount, i->leavetime);
 		TimeType waittime = i->leavetime - i->arrtime;
 		if(waittime < 0) waittime = 0; // arrtime > closetime
 		sum_stay += waittime;
@@ -391,7 +393,7 @@ void process_unfinished(CyQueue *q)
 		{
 			CustNode *current = CyQueue_Pop(q);
 			if(node_max == NULL) node_max = current;
-			else if((int)(current - node_max) > 0)
+			else if((int)(current - eventlist) > (int)(node_max - eventlist))
 			{
 				CyQueue_Push(q, node_max);
 				node_max = current;
@@ -418,7 +420,7 @@ void process()
 	total_amount = total_initial;
 	for(size_t i = 1; i <= day_number; i++)
 	{
-		printf("--- Day #%d ---\n", i);
+		printf("--- Day #%lu ---\n", i);
 		eventlist_Generate();
 		eventlist_output(0);
 		CyQueue *qunfinished = simulate();
@@ -442,9 +444,9 @@ int main()
 	printf("Please input the min&max of interval:\n");
 	scanf("%d%d\n", &interval_min, &interval_max);
 	printf("Please input the CHUNKSIZE:\n");
-	scanf("%d\n", &CHUNKSIZE);
+	scanf("%lu\n", &CHUNKSIZE);
 	printf("Please input the number days:\n");
-	scanf("%u", &day_number);
+	scanf("%lu", &day_number);
 	printf("\n=== START SIMULATION ===\n");
 	process();
 	return 0;
