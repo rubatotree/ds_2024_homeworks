@@ -35,7 +35,7 @@ TimeType closetime;
 TimeType  durtime_min,  durtime_max,
 		 interval_min, interval_max;
 AmountType amount_min,   amount_max;
-size_t event_number, day_number;
+size_t day_number;
 
 ///	Cycle Queue
 typedef struct CyQueue
@@ -159,6 +159,7 @@ void eventlist_Insert(CustNode node)
 		eventlist[0] = node;
 		eventlist_head = &eventlist[0];
 		eventlist_tail = &eventlist[0];
+		eventlist_tail->next = NULL;
 	}
 	else if(eventlist_tail->arrtime <= node.arrtime)
 	{
@@ -167,6 +168,7 @@ void eventlist_Insert(CustNode node)
 		eventlist_tail->next = eventlist_tail + 1;
 		eventlist_tail += 1;
 		(*eventlist_tail) = node;
+		eventlist_tail->next = NULL;
 	}
 	else if(eventlist_head->arrtime >= node.arrtime && (int)(eventlist_head - eventlist) > 0)
 	{
@@ -183,7 +185,7 @@ void eventlist_Insert(CustNode node)
 			if(cur->arrtime > node.arrtime)
 			{
 				// 插入 cur 前
-				if(prev != NULL && (int)(cur - prev) > 1)
+				if(prev != NULL && (int)(cur - prev - 1) > 0)
 				{
 					IndexType idx = prev + 1 - eventlist;
 					eventlist[idx] = node;
@@ -236,7 +238,7 @@ void eventlist_Generate()
 	}
 
 	TimeType arrtime = 0;
-	for(IndexType i = 0; i < event_number; i++)
+	while(arrtime < closetime)
 	{
 		CustNode node;
 		node.next = NULL;
@@ -252,21 +254,26 @@ void eventlist_Generate()
 }
 
 // Main Program
-void eventlist_output()
+void eventlist_output(int print_avg_stay)
 {
 	double sum_stay = 0;
 	printf("Event \t| Arrtime \t| Durtime \t| Amount \t| Leavetime\n");
+	int eventn = 0;
 	for(CustNode* i = eventlist_head; i != NULL; i = i->next)
 	{
 		printf("%4u \t| %8d\t| %8d\t| %8d\t| %d\n", (int)(i - eventlist), i->arrtime, i->durtime, i->amount, i->leavetime, i->next);
 		TimeType waittime = i->leavetime - i->arrtime;
 		if(waittime < 0) waittime = 0; // arrtime > closetime
 		sum_stay += waittime;
+		eventn++;
 	}
-	printf("Average stay time: %lf (min).\n", sum_stay / event_number);
+	printf("\n");
+	if(print_avg_stay)
+		printf("Average stay time: %lf (min).\n", sum_stay / eventn);
 }
 
 #define ECHO_EVENT printf("Process Event #%d:\nArrive Time:%d\nTime:%d -> %d\nTotal Amount:%d -> %d\nMain Queue: ", (int)(current - eventlist), current->arrtime, current_time - current->durtime, current_time, total_amount - current->amount, total_amount); size_t __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
+#define ECHO_FAIL printf("Process Event #%d but Fail(%d/%d)\nMain Queue: ", (int)(current - eventlist), -current->amount, total_amount); size_t __qmain_size = CyQueue_Size(qmain), __qwait_size = CyQueue_Size(qwait); for(IndexType __i = 0; __i < __qmain_size; __i++) printf("%d ", (int)(CyQueue_At(qmain, __i) - eventlist)); printf("\nWait Queue: "); for(IndexType __i = 0; __i < __qwait_size; __i++) printf("%d ", (int)(CyQueue_At(qwait, __i) - eventlist)); printf("\n\n");
 
 CyQueue* simulate()
 {
@@ -294,6 +301,7 @@ CyQueue* simulate()
 		{
 			// 银行存款不足，排入 wait 队列
 			CyQueue_Push(qwait, current);
+			ECHO_FAIL;
 			continue;
 		}
 		// 正常办理业务
@@ -309,9 +317,10 @@ CyQueue* simulate()
 		
 		ECHO_EVENT;
 
-		if(total_amount > 0)
+		if(current->amount > 0)
 		{
 			// 处理 wait 队列
+			printf("[Process the wait queue]\n");
 			size_t wait_len = CyQueue_Size(qwait);
 			int break_flag = 0;
 			for(IndexType i = 0; i < wait_len; i++)
@@ -339,9 +348,11 @@ CyQueue* simulate()
 				else
 				{
 					CyQueue_Push(qwait, current);
+					ECHO_FAIL;
 				}
 			}
 			if(break_flag) break;
+			printf("[Process the main queue]\n");
 		}
 	}
 	// 银行营业结束后，所有客户立即离开银行
@@ -368,17 +379,19 @@ void process_unfinished(CyQueue *q)
 	// 使用选择排序处理 next 表
 	// O(n^2)
 	eventlist_head = NULL;
-	printf("Unfinished events: ");
 	while(!CyQueue_Empty(q))
 	{
 		CustNode *node_max = NULL;
 		size_t size = CyQueue_Size(q);
-		// 每次选择一个到达最晚的
+		// 每次选择一个编号最大的（当然是到达最晚的）
+		// 这里之前因为优先选择到达最晚的，导致相同到达时间的会出现
+		// 编号偏后的 next 指向编号偏前的值，从而使得移位出错，造成死循环。
+		// 这个 bug 调了非常久。惨痛的代价！
 		for(IndexType i = 0; i < size; i++)
 		{
 			CustNode *current = CyQueue_Pop(q);
 			if(node_max == NULL) node_max = current;
-			else if(current->arrtime > node_max->arrtime)
+			else if((int)(current - node_max) > 0)
 			{
 				CyQueue_Push(q, node_max);
 				node_max = current;
@@ -392,8 +405,10 @@ void process_unfinished(CyQueue *q)
 		eventlist_head = node_max;
 
 		node_max->leavetime = -1;
-		printf("%d ", (int)(node_max - eventlist));
 	}
+	printf("Unfinished events: ");
+	for(CustNode* i = eventlist_head; i != NULL; i = i->next)
+		printf("%d ", (int)(i - eventlist));
 	printf("\n\n");
 	CyQueue_Delete(q);
 }
@@ -403,10 +418,11 @@ void process()
 	total_amount = total_initial;
 	for(size_t i = 1; i <= day_number; i++)
 	{
-		printf("Day #%d:\n", i);
+		printf("--- Day #%d ---\n", i);
 		eventlist_Generate();
+		eventlist_output(0);
 		CyQueue *qunfinished = simulate();
-		eventlist_output();
+		eventlist_output(1);
 
 		process_unfinished(qunfinished);
 	}
@@ -427,8 +443,6 @@ int main()
 	scanf("%d%d\n", &interval_min, &interval_max);
 	printf("Please input the CHUNKSIZE:\n");
 	scanf("%d\n", &CHUNKSIZE);
-	printf("Please input the number of events per day:\n");
-	scanf("%u", &event_number);
 	printf("Please input the number days:\n");
 	scanf("%u", &day_number);
 	printf("\n=== START SIMULATION ===\n");
