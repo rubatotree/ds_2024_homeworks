@@ -249,6 +249,8 @@ void eventlist_Generate()
 		node.durtime = random_range(durtime_min, durtime_max + 1);
 		node.amount = random_range(amount_min, amount_max + 1);
 		node.leavetime = -1;
+		
+		printf("Random event: \tArrtime:%d \tDurtime:%d \tAmount:%d\n", node.arrtime, node.durtime, node.amount);
 		eventlist_Insert(node);
 
 		TimeType interval = random_range(interval_min, interval_max + 1);
