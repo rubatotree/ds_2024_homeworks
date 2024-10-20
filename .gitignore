@@ -34,3 +34,4 @@
 build/
 /lab1/project/third_party/GLFW
 .vscode
+output/
