@@ -13,8 +13,8 @@ gcc -O2 src\decompressor.c -o build\decompressor.exe
 
 REM 遍历testcase目录中的文件
 for %%f in (testcase\*) do (
-    .\build\compressor.exe testcase\%%~nxf output\compressed\%%~nxf
-    .\build\decompressor.exe output\compressed\%%~nxf output\decompressed\%%~nxf
+    .\build\compressor.exe testcase\%%~nxf output\compressed\%%~nxf.huff
+    .\build\decompressor.exe output\compressed\%%~nxf.huff output\decompressed\%%~nxf
     fc testcase\%%~nxf output\decompressed\%%~nxf >nul
     if errorlevel 1 (
         echo %%~nxf: Failed
