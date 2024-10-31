@@ -134,7 +134,7 @@ int decompress()
 	unsigned long long file_size = ftell(file_input);
 	fseek(file_input, -1, SEEK_END);
 	unsigned char padding;
-	fread(&padding, sizeof(unsigned char), 1, file_input);
+	if(fread(&padding, sizeof(unsigned char), 1, file_input) != 1) return 1;
 	unsigned long long total_bits = (file_size - current_pos - 1ull) * 8ull - (unsigned long long)padding;
 	fseek(file_input, current_pos, SEEK_SET);
 

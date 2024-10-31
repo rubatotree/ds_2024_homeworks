@@ -136,17 +136,19 @@ void print_word_token_info(int word_index)
 	std::cout << "\t freq: " << word_table[word_index].freq << std::endl;
 }
 
+int scan_words()
+{
+	// TODO (Optional 1)
+	fseek(file_input, 0, SEEK_SET);
+	return 1;
+}
+
 int scan_file()
 {
-	// First scan: make a word table with the threshold
-	// TODO(Optional 1): change the unit of word to word
-	// A temporary initialize. Actually won't scan.
-	fseek(file_input, 0, SEEK_SET);
 	for(int i = 0; i < 256; i++)
 		add_word((unsigned char)i);
+	scan_words();
 
-	// Second scan: scan the frequency of each character
-	// TODO(Optional 1): change the unit of word to word
 	fseek(file_input, 0, SEEK_SET);
 	int word_index;
 	while((word_index = read_word()) != -1)
@@ -185,6 +187,8 @@ int make_huffman_tree()
 		std::vector<HuffmanTreeNode*>, 
 		decltype(cmp_huffman_node)> nodes_queue(cmp_huffman_node);
 
+	// TODO (Optional 2): Use the n + ceil(lgn) - 2 algorithm
+	// Use a Segment tree to find the two smallest elements.
 	for(int i = 0; i < word_table.size(); i++)
 	{
 		if(word_table[i].freq > 0)
