@@ -129,9 +129,20 @@ int decompress()
 {
 	int bit;
 	HuffmanTreeNode* p = root;
-	while((bit = read_bit()) != -1)
+	unsigned long long current_pos = ftell(file_input);
+	fseek(file_input, 0, SEEK_END);
+	unsigned long long file_size = ftell(file_input);
+	fseek(file_input, -1, SEEK_END);
+	unsigned char padding;
+	fread(&padding, sizeof(unsigned char), 1, file_input);
+	unsigned long long total_bits = (file_size - current_pos - 1ull) * 8ull - (unsigned long long)padding;
+	fseek(file_input, current_pos, SEEK_SET);
+
+	for(unsigned long long i = 0; i < total_bits; i++)
 	{
+		bit = read_bit();
 		if(p == NULL) return 1;
+
 		if(bit == 0) p = p->node.lchild;
 		else if(bit == 1) p = p->node.rchild;
 

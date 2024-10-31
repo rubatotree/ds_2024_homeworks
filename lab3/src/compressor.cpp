@@ -87,13 +87,14 @@ void write_try()
 		fwrite(&ch, sizeof(unsigned char), 1, file_output);
 	}
 }
-void write_clear_stream()
+unsigned char write_clear_stream()
 {
 	int size = bit_stream.size();
-	if(size == 0) return;
+	if(size == 0) return 0;
 	for(int i = 0; i < 8 - size % 8; i++)
 		bit_stream.push_back(0);
 	write_try();
+	return 8 - size % 8;
 }
 void write_uchar(unsigned char n)
 {
@@ -313,7 +314,8 @@ int compress()
 	{
 		write_code(word_index);
 	}
-	write_clear_stream();
+	unsigned char deleted_bits = write_clear_stream();
+	write_uchar(deleted_bits);
 	return 0;
 }
 
