@@ -117,9 +117,10 @@ int read_table()
 	for(int i = 0; i < word_table.size(); i++)
 	{
 		unsigned char ch;
-		fread(&ch, sizeof(unsigned char), 1, file_input);
+		if(fread(&ch, sizeof(unsigned char), 1, file_input) != 1)
+			return 1;
 		word_table[i].length = ch;
-		fread(word_table[i].word, sizeof(unsigned char), word_table[i].length, file_input);
+		if(fread(word_table[i].word, sizeof(unsigned char), word_table[i].length, file_input) != 1) return -1;
 	}
 	// output_table();
 	return 0;

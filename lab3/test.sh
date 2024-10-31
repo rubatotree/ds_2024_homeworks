@@ -16,6 +16,6 @@ do
         echo "$file: Passed"
     else
         echo "$file: Failed"
-    fi
-    python3 src\utils\calc_compress_radio.py testcase\%%~nxf output\compressed\%%~nxf.huff
+	fi
+    python3 src/utils/calc_compress_radio.py ./testcase/$file ./output/compressed/$file.huff 
 done
