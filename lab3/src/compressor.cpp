@@ -90,10 +90,13 @@ void write_try()
 unsigned char write_clear_stream()
 {
 	int size = bit_stream.size();
-	if(size == 0) return 0;
-	for(int i = 0; i < 8 - size % 8; i++)
-		bit_stream.push_back(0);
+	if(size % 8 > 0)
+	{
+		for(int i = 0; i < 8 - size % 8; i++)
+			bit_stream.push_back(0);
+	}
 	write_try();
+	if(size == 0) return 0;
 	return 8 - size % 8;
 }
 void write_uchar(unsigned char n)
@@ -295,16 +298,21 @@ int make_huffman_codes()
 int output_code_table()
 {
 	bit_stream.clear();
-	for(int i = 0; i < traverse_path_code.size(); i++)
+	// the first of path should be 0 and last should be 1
+	// so we can save two bits to do something
+	for(int i = 1; i < traverse_path_code.size(); i++)
 	{
 		bit_stream.push_back(traverse_path_code[i]);
 		write_try();
 	}
+	// tag of word
+	char word_tag = (word_table.size() > 256);
+	bit_stream.push_back(word_tag);
 	write_clear_stream();
 	for(int i = 0; i < traverse_order.size(); i++)
 	{
 		int word_index = traverse_order[i];
-		write_uchar(word_table[word_index].length);
+		if(word_tag) write_uchar(word_table[word_index].length);
 		write_chars(word_table[word_index].word, word_table[word_index].length);
 	}
 	return 0;

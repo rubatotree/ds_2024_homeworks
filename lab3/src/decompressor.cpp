@@ -33,6 +33,7 @@ struct WordToken
 	unsigned char length;
 };
 std::vector<WordToken> word_table;
+bool word_tag = false;
 
 std::deque<char> bit_stream;
 int read_bit()
@@ -57,10 +58,10 @@ int read_tree()
 	root->node.lchild = NULL;
 	root->node.rchild = NULL;
 	HuffmanTreeNode* p = root;
+	int bit = 0;
 	do
 	{
 		if(p->parent == NULL) root_visit++;
-		int bit = read_bit();
 		if(bit == -1) return 1;
 		else if(bit == 0)
 		{
@@ -89,7 +90,10 @@ int read_tree()
 			else return 1;
 			p = p->parent;
 		}
-	} while (!(p->parent == NULL && root_visit == 2));
+		bit = read_bit();
+	} 
+	while (!(p->parent == NULL && root_visit == 2));
+	if(bit == 1) word_tag = true;
 	bit_stream.clear();
 	return 0;
 }
@@ -116,11 +120,13 @@ int read_table()
 {
 	for(int i = 0; i < word_table.size(); i++)
 	{
-		unsigned char ch;
-		if(fread(&ch, sizeof(unsigned char), 1, file_input) != 1)
-			return 1;
-		word_table[i].length = ch;
-		if(fread(word_table[i].word, sizeof(unsigned char), word_table[i].length, file_input) != 1) return -1;
+		unsigned char len = 1;
+		if(word_tag)
+		{
+			if(fread(&len, sizeof(unsigned char), 1, file_input) != 1) return 1;
+		}
+		word_table[i].length = len;
+		if(fread(word_table[i].word, sizeof(unsigned char), word_table[i].length, file_input) != 1) return 1;
 	}
 	// output_table();
 	return 0;
