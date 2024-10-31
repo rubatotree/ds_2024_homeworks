@@ -4,8 +4,8 @@ mkdir ./build
 mkdir ./output
 mkdir ./output/compressed
 mkdir ./output/decompressed
-gcc -O2 ./src/compressor.c -o ./build/compressor
-gcc -O2 ./src/decompressor.c -o ./build/decompressor
+g++ -O2 ./src/compressor.cpp -o ./build/compressor
+g++ -O2 ./src/decompressor.cpp -o ./build/decompressor
 
 
 echo "---Compressor Output---"
