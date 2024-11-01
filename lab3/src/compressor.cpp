@@ -340,7 +340,7 @@ int scan_words()
 		int idx = letter_to_trie_code(ch);
 		if(idx == -1)
 		{
-			if(p != word_trie_root) p->freq++;
+			if(p != word_trie_root && dep > 1) p->freq++;
 			p = word_trie_root;
 			dep = 0;
 		}
