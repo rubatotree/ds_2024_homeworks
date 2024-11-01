@@ -10,7 +10,6 @@
 
 const unsigned int max_word_number = 65536;
 const unsigned int max_word_length = 255;
-const unsigned int max_code_length = 256;
 
 FILE *file_input, *file_output;
 
@@ -126,7 +125,7 @@ int read_table()
 			if(fread(&len, sizeof(unsigned char), 1, file_input) != 1) return 1;
 		}
 		word_table[i].length = len;
-		if(fread(word_table[i].word, sizeof(unsigned char), word_table[i].length, file_input) != 1) return 1;
+		if(fread(word_table[i].word, sizeof(unsigned char), word_table[i].length, file_input) < 1) return 1;
 	}
 	// output_table();
 	return 0;

@@ -12,6 +12,7 @@ g++ -O2 ./src/decompressor.cpp -o ./build/decompressor
 
 echo "---Compressor Output---"
 ./build/compressor ./testcase/debug.txt ./output/compressed/debug.txt.huff
+xxd ./output/compressed/debug.txt.huff > ./output/compressed/debug.txt.huff.hex
 echo ""
 echo "---Decompressor Output---"
 ./build/decompressor ./output/compressed/debug.txt.huff ./output/decompressed/debug.txt

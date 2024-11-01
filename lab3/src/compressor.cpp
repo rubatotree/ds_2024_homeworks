@@ -12,7 +12,6 @@
 
 const unsigned int max_word_number = 32768;
 const unsigned int max_word_length = 255;
-const unsigned int max_code_length = 32768;
 
 FILE *file_input, *file_output;
 
@@ -40,7 +39,24 @@ struct WordToken
 std::vector<WordToken> word_table;
 std::deque<char> bit_stream;
 
-// Optional 2: Use a segment tree to find two min values in an array.
+// Optional 1: Use a Trie to calculate the freq of words.
+const int letter_n = 52;
+struct TrieNode
+{
+	unsigned char val;
+	int freq, word_index;
+	TrieNode *ch[letter_n], *parent;
+	TrieNode(unsigned char val = '\0'): val(val)
+	{
+		freq = 0;
+		parent = nullptr;
+		word_index = -1;
+		for(int i = 0; i < letter_n; i++)
+			ch[i] = nullptr;
+	}
+};
+
+// Optional 2: Use a Segment tree to find two min values in an array.
 template <class T>
 struct SegmentTreeNode
 {
@@ -104,9 +120,27 @@ std::pair<int, int> find_two_mins(
 };
 
 // Wordtable & Bitstream processing functions
-bool is_letter(char c)
+bool is_letter(char c) 
+{ 
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); 
+}
+int letter_to_trie_code(char c) 
 {
-	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+	if(c >= 'A' && c <= 'Z') return c - 'A';
+	else if(c >= 'a' && c <= 'z') return 26 + c - 'a';
+	return -1;
+}
+char trie_code_to_letter(int code)
+{
+	if(0 <= code && code <= 25) return code + 'A';
+	else if(26 <= code && code <= 51) return code - 26 + 'a';
+	return '\0';
+}
+int ceil_log_2(int x)
+{
+	int i = 0;
+	while(((x - 1) >> i) > 0) i++;
+	return i;
 }
 unsigned int add_word()
 {
@@ -120,24 +154,64 @@ unsigned int add_word(unsigned char c)
 	word_table[idx].length = 1;
 	return idx;
 }
-unsigned int add_word(unsigned char* p_word)
-{
-	unsigned short idx = add_word();
-	short i;
-	for(i = 0; !is_letter(p_word[i]); i++)
-		word_table[idx].word[i] = p_word[i];
-	word_table[idx].length = i;
-	return idx;
-}
 
-int read_word()
+int read_char()
 {
-	// TODO(Optional 1): change the unit of word to word
-	// Actually read a char there
 	unsigned char ch;
 	if(!fread(&ch, sizeof(unsigned char), 1, file_input))
 		return -1;
 	return (int)ch;
+}
+
+int word_threshold = -1;
+TrieNode* word_trie_root;
+std::deque<unsigned char> char_stream;
+int read_word()
+{
+	if(word_threshold < 0) return read_char();
+	if(char_stream.size() > 0)
+	{
+		int ch = (int)char_stream.front();
+		char_stream.pop_front();
+		return ch;
+	}
+	else
+	{
+		int ch = 0;
+		TrieNode* p = word_trie_root;
+		int dep = 0;
+		do
+		{
+			ch = read_char();
+			if(ch == -1)
+			{
+				return -1;
+			}
+			char_stream.push_back((unsigned char)ch);
+			if(!is_letter(ch)) 
+			{
+				if(p != nullptr && p->freq > 0 && p->word_index != -1)
+				{
+					char_stream.clear();
+					char_stream.push_back(ch);
+					return p->word_index;
+				}
+				else return read_word();
+			}
+			else
+			{
+				if(p != nullptr) 
+				{
+					p = p->ch[letter_to_trie_code(ch)];
+					dep++;
+					if(dep > max_word_length)
+						return read_word();
+				}		
+			}
+		} 
+		while(dep <= max_word_length);
+		return -1;
+	}
 }
 void write_try()
 {
@@ -186,14 +260,20 @@ void write_tree_code(HuffmanTreeNode* p,
 	char code = (p == p->parent->node.rchild);
 	writer(code);
 }
+void print_tree_code(HuffmanTreeNode* p)
+{
+	if(p->parent == nullptr) return;
+	print_tree_code(p->parent);
+	char code = (p == p->parent->node.rchild);
+	printf("%d", code);
+}
 void write_code(int word_index)
 {
 	write_tree_code(word_table[word_index].node);
 }
 void print_code(int word_index)
 {
-	write_tree_code(word_table[word_index].node, 
-			[](char bit) -> void { std::cout << (int)bit; });
+	print_tree_code(word_table[word_index].node);
 }
 void print_word_token_info(int word_index)
 {
@@ -204,22 +284,102 @@ void print_word_token_info(int word_index)
 }
 
 // Processing functions
+std::vector<int> freq_table;
+unsigned char cur_word[max_word_length];
+
+void traverse_word_trie(TrieNode *p)
+{
+	if(p == NULL) return;
+	for(int i = 0; i < letter_n; i++)
+		traverse_word_trie(p->ch[i]);
+	if(p != word_trie_root) freq_table.push_back(p->freq);
+}
+void polish_word_trie(TrieNode *p, int dep)
+{
+	if(p == NULL) return;
+	int ch_n = 0;
+	for(int i = 0; i < letter_n; i++)
+	{
+		if(p->ch[i] != nullptr)
+		{
+			cur_word[dep] = trie_code_to_letter(i);
+			polish_word_trie(p->ch[i], dep + 1);
+			cur_word[dep] = '\0';
+			if(p->ch[i] != nullptr) ch_n++;
+		}
+	}
+	if(ch_n == 0 && (word_threshold < 0 || p->freq <= word_threshold))
+	{
+		p->parent->ch[letter_to_trie_code(p->val)] = nullptr;
+		delete p;
+		return;
+	}
+	if(word_threshold >= 0 && p->freq > word_threshold)
+	{
+		unsigned int idx = add_word();
+		cur_word[dep] = '\0';
+		for(int i = 0; i < dep; i++)
+			word_table[idx].word[i] = cur_word[i];
+		word_table[idx].word[dep] = 0;
+		word_table[idx].length = dep;
+		word_table[idx].freq = p->freq;
+		p->word_index = idx;
+	}
+}
 int scan_words()
 {
-	// TODO (Optional 1)
+	printf("Begin scanning words\n");
 	fseek(file_input, 0, SEEK_SET);
-	return 1;
+	word_trie_root = new TrieNode();
+	TrieNode *p = word_trie_root;
+
+	int ch_int;
+	int dep = 0;
+	while((ch_int = read_char()) != -1)
+	{
+		unsigned char ch = (unsigned char) ch_int;
+		int idx = letter_to_trie_code(ch);
+		if(idx == -1)
+		{
+			if(p != word_trie_root) p->freq++;
+			p = word_trie_root;
+			dep = 0;
+		}
+		else
+		{
+			if(dep <= max_word_length)
+			{
+				if(p->ch[idx] == nullptr)
+				{
+					p->ch[idx] = new TrieNode(ch);
+					p->ch[idx]->parent = p;
+				}
+				p = p->ch[idx];
+				dep++;
+			}	
+		}
+	}
+	printf("Successfully build trie\n");
+	traverse_word_trie(word_trie_root);
+	printf("Successfully traversed trie\n");
+	if(freq_table.size() > max_word_number - 256)
+	{
+		std::sort(freq_table.begin(), freq_table.end(), std::greater<int>());
+		word_threshold = freq_table[max_word_number - 256];
+	}
+	polish_word_trie(word_trie_root, 0);
+	printf("Successfully polished trie\n");
+	return 0;
 }
 
 int scan_file()
 {
 	for(int i = 0; i < 256; i++)
 		add_word((unsigned char)i);
-	scan_words();
 
 	fseek(file_input, 0, SEEK_SET);
 	int word_index;
-	while((word_index = read_word()) != -1)
+	while((word_index = read_char()) != -1)
 		word_table[word_index].freq++;
 
 	int available_word_number = 0;
@@ -244,14 +404,8 @@ int scan_file()
 			available_word_number++;
 		}
 	}
+	if(word_threshold >= 0) scan_words();
 	return 0;
-}
-
-int ceil_log_2(int x)
-{
-	int i = 0;
-	while(((x - 1) >> i) > 0) i++;
-	return i;
 }
 
 std::vector<char> traverse_path_code;
@@ -278,12 +432,27 @@ void delete_huffman_tree(HuffmanTreeNode* p)
 	if(p == NULL) return;
 	if(p->type == LEAF)
 	{
+		// printf("Leaf ");
+		// printf("%d\n", p->leaf.word_index);
+		// printf("1\n");
 		free(p);
 		return;
 	}
+	// printf("0l\n");
+	// printf("%lld %lld %lld\n", p, p->node.lchild, p->node.rchild);
 	delete_huffman_tree(p->node.lchild);
+	// printf("0r\n");
 	delete_huffman_tree(p->node.rchild);
+	// printf("1\n");
 	free(p);
+}
+
+void delete_trie(TrieNode* p)
+{
+	if(p == nullptr) return;
+	for(int i = 0; i < letter_n; i++)
+		delete_trie(p->ch[i]);
+	delete p;
 }
 
 void output_tree_info()
@@ -347,6 +516,7 @@ int make_huffman_tree()
 		if(compn > max_compn) return 2;	// Don't satisfy optional 2: Abort
 
 		auto node = (HuffmanTreeNode*)malloc(sizeof(HuffmanTreeNode));
+
 		node->type = NODE;
 		node->node.lchild = huffman_nodes[two_mins.first];
 		node->node.rchild = huffman_nodes[two_mins.second];
@@ -362,7 +532,6 @@ int make_huffman_tree()
 	}
 	root = huffman_nodes[0];
 	huffman_nodes.pop_back();
-
 	traverse_huffman_tree(root, 0);
 	// output_tree_info();
 	return 0;
@@ -415,16 +584,41 @@ int process()
 	if(compress()) return 1;
 	std::cout << "Successfully compressed the file." << std::endl;
 	delete_huffman_tree(root);
+	std::cout << "Successfully freed the huffman tree." << std::endl;
+	if(word_threshold >= 0)
+	{
+		delete_trie(word_trie_root);
+		std::cout << "Successfully freed the trie." << std::endl;
+	}
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	if(argc != 3)
+	if(argc < 3)
 	{
 		std::cout << "Format error.\nExpect:"
 			" ./compressor <input_file> <output_file>" << std::endl;
 		return 0;
+	}
+	else if(argc != 3 && argc != 5)
+	{
+		if(strcmp(argv[3], "-w") != 0)
+		{
+			std::cout << "Format error.\nExpect:"
+				" ./compressor <input_file> <output_file> -w <word_freq>"
+			   	<< std::endl;
+			return 0;
+		}
+	}
+	else if(argc == 5)
+	{
+		word_threshold = atoi(argv[4]);
+		if(word_threshold < 0)
+		{
+			std::cout << "Word freq should be positive." << std::endl;
+			return 0;
+		}
 	}
 	file_input = fopen(argv[1], "rb");
 	file_output = fopen(argv[2], "wb");
