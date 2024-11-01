@@ -10,9 +10,9 @@
 #include <tuple>
 #include <functional>
 
-const unsigned int max_word_number = 65536;
+const unsigned int max_word_number = 32768;
 const unsigned int max_word_length = 255;
-const unsigned int max_code_length = 256;
+const unsigned int max_code_length = 32768;
 
 FILE *file_input, *file_output;
 
@@ -34,9 +34,8 @@ struct WordToken
 {
 	unsigned char word[max_word_length];
 	unsigned char length;
-	unsigned char code[max_code_length];
-	unsigned char code_length;
 	int freq;
+	HuffmanTreeNode* node;
 };
 std::vector<WordToken> word_table;
 std::deque<char> bit_stream;
@@ -49,8 +48,9 @@ struct SegmentTreeNode
 	SegmentTreeNode *parent, *lchild, *rchild;
 };
 template <class T>
-SegmentTreeNode<T>* build_seg_tree(SegmentTreeNode<T> *p, std::vector<T> &arr, 
-						int l, int r, std::function<bool(T&, T&)> cmp)
+SegmentTreeNode<T>* build_seg_tree(SegmentTreeNode<T> *p, 
+		std::vector<T> &arr, int l, int r, 
+		std::function<bool(T&, T&)> cmp)
 {
 	if(r == l + 1)
 	{
@@ -76,7 +76,8 @@ void del_seg_tree(SegmentTreeNode<T> *p)
 	delete p;
 }
 template <class T>
-std::pair<int, int> find_two_mins(std::vector<T> &arr, std::function<bool(T&, T&)> cmp)
+std::pair<int, int> find_two_mins(
+		std::vector<T> &arr, std::function<bool(T&, T&)> cmp)
 {
 	int n = arr.size();
 	if(n <= 1) return { 0, 0 };
@@ -109,7 +110,7 @@ bool is_letter(char c)
 }
 unsigned int add_word()
 {
-	word_table.push_back({{'\0'}, 0, {'\0'}, 0, 0});
+	word_table.push_back({{'\0'}, 0, 0, nullptr});
 	return word_table.size() - 1;
 }
 unsigned int add_word(unsigned char c)
@@ -128,6 +129,7 @@ unsigned int add_word(unsigned char* p_word)
 	word_table[idx].length = i;
 	return idx;
 }
+
 int read_word()
 {
 	// TODO(Optional 1): change the unit of word to word
@@ -163,6 +165,11 @@ unsigned char write_clear_stream()
 	if(size == 0) return 0;
 	return 8 - size % 8;
 }
+void write_bit(char bit)
+{
+	bit_stream.push_back(bit);
+	write_try();
+}
 void write_uchar(unsigned char n)
 {
 	fwrite(&n, sizeof(unsigned char), 1, file_output);
@@ -171,34 +178,27 @@ void write_chars(unsigned char* p, unsigned int n)
 {
 	fwrite(p, sizeof(unsigned char), n, file_output);
 }
+void write_tree_code(HuffmanTreeNode* p, 
+		std::function<void(char)> writer = write_bit)
+{
+	if(p->parent == nullptr) return;
+	write_tree_code(p->parent);
+	char code = (p == p->parent->node.rchild);
+	writer(code);
+}
 void write_code(int word_index)
 {
-	for(int i = 0; i < word_table[word_index].code_length; i++)
-		bit_stream.push_back((word_table[word_index].code[i / 8] >> (7 - i % 8)) & 1);
-	write_try();
-}
-void code_pushback(int word_index, int code_bit)
-{
-	unsigned char mask = (code_bit & 1) << (7 - word_table[word_index].code_length % 8);
-	word_table[word_index].code[word_table[word_index].code_length / 8] &= ~mask;
-	word_table[word_index].code[word_table[word_index].code_length / 8] |= mask;
-	word_table[word_index].code_length++;
-}
-void set_code(int word_index, char* code, int code_length)
-{
-	word_table[word_index].code_length = 0;
-	for(int i = 0; i < code_length; i++)
-		code_pushback(word_index, code[i]);
-	word_table[word_index].code_length = code_length;
+	write_tree_code(word_table[word_index].node);
 }
 void print_code(int word_index)
 {
-	for(int i = 0; i < word_table[word_index].code_length; i++)
-		std::cout << ((word_table[word_index].code[i / 8] >> (7 - i % 8)) & 1);
+	write_tree_code(word_table[word_index].node, 
+			[](char bit) -> void { std::cout << (int)bit; });
 }
 void print_word_token_info(int word_index)
 {
-	std::cout << "[" << word_index << "] " << word_table[word_index].word << "\t" << "-> "; 
+	std::cout << "[" << word_index << "] " 
+		<< word_table[word_index].word << "\t" << "-> "; 
 	print_code(word_index);
 	std::cout << "\t freq: " << word_table[word_index].freq << std::endl;
 }
@@ -254,53 +254,6 @@ int ceil_log_2(int x)
 	return i;
 }
 
-std::vector<HuffmanTreeNode*> huffman_nodes;
-int make_huffman_tree()
-{
-	int compn = 0;
-	auto cmp_huffman_node = [&compn](HuffmanTreeNode* &a, HuffmanTreeNode* &b) 
-						-> bool { compn++; return a->weight < b->weight; };
-
-	for(int i = 0; i < word_table.size(); i++)
-	{
-		if(word_table[i].freq > 0)
-		{
-			auto node = (HuffmanTreeNode*)malloc(sizeof(HuffmanTreeNode));
-			node->type = LEAF;
-			node->weight = word_table[i].freq;
-			node->parent = NULL;
-			node->leaf.word_index = i;
-			huffman_nodes.push_back(node);
-		}
-	}
-	while(huffman_nodes.size() > 1)
-	{
-		int n = huffman_nodes.size(), max_compn = n + ceil_log_2(n) - 2;
-		compn = 0;
-		auto two_mins = find_two_mins<HuffmanTreeNode*>(huffman_nodes, cmp_huffman_node);
-		// printf("Compare number: %d, (n+ceil(lgn)-2)=%d\n", compn, max_compn);
-		if(compn > max_compn) return 2;	// If don't satisfy optional 2 then abort
-
-		auto node = (HuffmanTreeNode*)malloc(sizeof(HuffmanTreeNode));
-		node->type = NODE;
-		node->node.lchild = huffman_nodes[two_mins.first];
-		node->node.rchild = huffman_nodes[two_mins.second];
-		node->weight = node->node.lchild->weight + node->node.rchild->weight;
-		node->node.lchild->parent = node;
-		node->node.rchild->parent = node;
-
-		huffman_nodes[two_mins.first]  = huffman_nodes[huffman_nodes.size() - 1];
-		huffman_nodes[two_mins.second] = huffman_nodes[huffman_nodes.size() - 2];
-		huffman_nodes.pop_back();
-		huffman_nodes.pop_back();
-		huffman_nodes.push_back(node);
-	}
-	root = huffman_nodes[0];
-	huffman_nodes.pop_back();
-	return 0;
-}
-
-char code[max_code_length];
 std::vector<char> traverse_path_code;
 std::vector<int> traverse_order;
 void traverse_huffman_tree(HuffmanTreeNode* p, int dep)
@@ -308,15 +261,13 @@ void traverse_huffman_tree(HuffmanTreeNode* p, int dep)
 	if(p == NULL) return;
 	if(p->type == LEAF)
 	{
-		set_code(p->leaf.word_index, code, dep);
+		// set_code(p->leaf.word_index, code, dep);
 		traverse_path_code.push_back(1);
 		traverse_order.push_back(p->leaf.word_index);
 		return;
 	}
-	code[dep] = 0;
 	traverse_path_code.push_back(0);
 	traverse_huffman_tree(p->node.lchild, dep + 1);
-	code[dep] = 1;
 	traverse_path_code.push_back(0);
 	traverse_huffman_tree(p->node.rchild, dep + 1);
 	if(p != root) traverse_path_code.push_back(1);
@@ -367,14 +318,56 @@ void output_tree_info()
 	}
 }
 
-int make_huffman_codes()
+int make_huffman_tree()
 {
-	make_huffman_tree();
+	int compn = 0;
+	std::vector<HuffmanTreeNode*> huffman_nodes;
+
+	for(int i = 0; i < word_table.size(); i++)
+	{
+		if(word_table[i].freq > 0)
+		{
+			auto node = (HuffmanTreeNode*)malloc(sizeof(HuffmanTreeNode));
+			node->type = LEAF;
+			node->weight = word_table[i].freq;
+			node->parent = NULL;
+			node->leaf.word_index = i;
+			word_table[i].node = node;
+			huffman_nodes.push_back(node);
+		}
+	}
+	while(huffman_nodes.size() > 1)
+	{
+		int n = huffman_nodes.size(), max_compn = n + ceil_log_2(n) - 2;
+		compn = 0;
+		auto two_mins = find_two_mins<HuffmanTreeNode*>(huffman_nodes, 
+					[&compn](HuffmanTreeNode* &a, HuffmanTreeNode* &b) 
+						-> bool { compn++; return a->weight < b->weight; });
+		// printf("Compared %d times, n+ceil(lgn)-2=%d\n", compn, max_compn);
+		if(compn > max_compn) return 2;	// Don't satisfy optional 2: Abort
+
+		auto node = (HuffmanTreeNode*)malloc(sizeof(HuffmanTreeNode));
+		node->type = NODE;
+		node->node.lchild = huffman_nodes[two_mins.first];
+		node->node.rchild = huffman_nodes[two_mins.second];
+		node->weight = node->node.lchild->weight + node->node.rchild->weight;
+		node->node.lchild->parent = node;
+		node->node.rchild->parent = node;
+
+		huffman_nodes[two_mins.first]  = huffman_nodes[n - 1];
+		huffman_nodes[two_mins.second] = huffman_nodes[n - 2];
+		huffman_nodes.pop_back();
+		huffman_nodes.pop_back();
+		huffman_nodes.push_back(node);
+	}
+	root = huffman_nodes[0];
+	huffman_nodes.pop_back();
+
 	traverse_huffman_tree(root, 0);
-	delete_huffman_tree(root);
 	// output_tree_info();
 	return 0;
 }
+
 
 int output_code_table()
 {
@@ -383,18 +376,17 @@ int output_code_table()
 	// so we can save two bits to do something
 	for(int i = 1; i < traverse_path_code.size(); i++)
 	{
-		bit_stream.push_back(traverse_path_code[i]);
-		write_try();
+		write_bit(traverse_path_code[i]);
 	}
 	// tag of word
 	char word_tag = (word_table.size() > 256);
-	bit_stream.push_back(word_tag);
+	write_bit(word_tag);
 	write_clear_stream();
 	for(int i = 0; i < traverse_order.size(); i++)
 	{
-		int word_index = traverse_order[i];
-		if(word_tag) write_uchar(word_table[word_index].length);
-		write_chars(word_table[word_index].word, word_table[word_index].length);
+		int ind = traverse_order[i];
+		if(word_tag) write_uchar(word_table[ind].length);
+		write_chars(word_table[ind].word, word_table[ind].length);
 	}
 	return 0;
 }
@@ -416,12 +408,13 @@ int process()
 {
 	if(scan_file()) return 1;
 	std::cout << "Successfully scanned the file." << std::endl;
-	if(make_huffman_codes()) return 1;
-	std::cout << "Successfully made the Huffman codes." << std::endl;
+	if(make_huffman_tree()) return 1;
+	std::cout << "Successfully made the Huffman tree." << std::endl;
 	if(output_code_table()) return 1;
 	std::cout << "Successfully output the code table." << std::endl;
 	if(compress()) return 1;
 	std::cout << "Successfully compressed the file." << std::endl;
+	delete_huffman_tree(root);
 	return 0;
 }
 
@@ -429,7 +422,8 @@ int main(int argc, char *argv[])
 {
 	if(argc != 3)
 	{
-		std::cout << "Format error.\nExpect: ./compressor <input_file> <output_file>" << std::endl;
+		std::cout << "Format error.\nExpect:"
+			" ./compressor <input_file> <output_file>" << std::endl;
 		return 0;
 	}
 	file_input = fopen(argv[1], "rb");
