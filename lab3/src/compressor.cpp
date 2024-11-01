@@ -252,13 +252,12 @@ void write_chars(unsigned char* p, unsigned int n)
 {
 	fwrite(p, sizeof(unsigned char), n, file_output);
 }
-void write_tree_code(HuffmanTreeNode* p, 
-		std::function<void(char)> writer = write_bit)
+void write_tree_code(HuffmanTreeNode* p)
 {
 	if(p->parent == nullptr) return;
 	write_tree_code(p->parent);
 	char code = (p == p->parent->node.rchild);
-	writer(code);
+	write_bit(code);
 }
 void print_tree_code(HuffmanTreeNode* p)
 {
@@ -432,18 +431,11 @@ void delete_huffman_tree(HuffmanTreeNode* p)
 	if(p == NULL) return;
 	if(p->type == LEAF)
 	{
-		// printf("Leaf ");
-		// printf("%d\n", p->leaf.word_index);
-		// printf("1\n");
 		free(p);
 		return;
 	}
-	// printf("0l\n");
-	// printf("%lld %lld %lld\n", p, p->node.lchild, p->node.rchild);
 	delete_huffman_tree(p->node.lchild);
-	// printf("0r\n");
 	delete_huffman_tree(p->node.rchild);
-	// printf("1\n");
 	free(p);
 }
 
@@ -521,6 +513,7 @@ int make_huffman_tree()
 		node->node.lchild = huffman_nodes[two_mins.first];
 		node->node.rchild = huffman_nodes[two_mins.second];
 		node->weight = node->node.lchild->weight + node->node.rchild->weight;
+		node->parent = NULL;
 		node->node.lchild->parent = node;
 		node->node.rchild->parent = node;
 
