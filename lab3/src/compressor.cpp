@@ -10,7 +10,7 @@
 #include <tuple>
 #include <functional>
 
-const unsigned int max_word_number = 32768;
+const unsigned int max_word_number = 4096;
 const unsigned int max_word_length = 255;
 
 FILE *file_input, *file_output;
@@ -168,7 +168,7 @@ TrieNode* word_trie_root;
 std::deque<unsigned char> char_stream;
 int read_word()
 {
-	if(word_threshold < 0) return read_char();
+	if(word_threshold < 0 || word_trie_root == nullptr) return read_char();
 	if(char_stream.size() > 0)
 	{
 		int ch = (int)char_stream.front();
@@ -254,14 +254,14 @@ void write_chars(unsigned char* p, unsigned int n)
 }
 void write_tree_code(HuffmanTreeNode* p)
 {
-	if(p->parent == nullptr) return;
+	if(p == nullptr || p->parent == nullptr) return;
 	write_tree_code(p->parent);
 	char code = (p == p->parent->node.rchild);
 	write_bit(code);
 }
 void print_tree_code(HuffmanTreeNode* p)
 {
-	if(p->parent == nullptr) return;
+	if(p == nullptr || p->parent == nullptr) return;
 	print_tree_code(p->parent);
 	char code = (p == p->parent->node.rchild);
 	printf("%d", code);
@@ -309,7 +309,9 @@ void polish_word_trie(TrieNode *p, int dep)
 	}
 	if(ch_n == 0 && (word_threshold < 0 || p->freq <= word_threshold))
 	{
-		p->parent->ch[letter_to_trie_code(p->val)] = nullptr;
+		if(p->parent != nullptr)
+			p->parent->ch[letter_to_trie_code(p->val)] = nullptr;
+		else word_trie_root = nullptr;
 		delete p;
 		return;
 	}
@@ -364,7 +366,9 @@ int scan_words()
 	if(freq_table.size() > max_word_number - 256)
 	{
 		std::sort(freq_table.begin(), freq_table.end(), std::greater<int>());
-		word_threshold = freq_table[max_word_number - 256];
+		int max_threshold = freq_table[max_word_number - 256];
+		if(word_threshold < max_threshold)
+			word_threshold = max_threshold;
 	}
 	polish_word_trie(word_trie_root, 0);
 	printf("Successfully polished trie\n");
@@ -508,7 +512,6 @@ int make_huffman_tree()
 		if(compn > max_compn) return 2;	// Don't satisfy optional 2: Abort
 
 		auto node = (HuffmanTreeNode*)malloc(sizeof(HuffmanTreeNode));
-
 		node->type = NODE;
 		node->node.lchild = huffman_nodes[two_mins.first];
 		node->node.rchild = huffman_nodes[two_mins.second];
