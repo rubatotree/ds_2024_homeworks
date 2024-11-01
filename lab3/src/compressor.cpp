@@ -7,6 +7,7 @@
 #include <memory>
 #include <algorithm>
 #include <iomanip>
+#include <tuple>
 
 const unsigned int max_word_number = 65536;
 const unsigned int max_word_length = 255;
@@ -26,8 +27,8 @@ struct HuffmanTreeNode
 		struct{ HuffmanTreeNode *lchild, *rchild; } node;
 	};
 };
-
 HuffmanTreeNode* root;
+
 struct WordToken
 {
 	unsigned char word[max_word_length];
@@ -39,6 +40,68 @@ struct WordToken
 std::vector<WordToken> word_table;
 std::deque<char> bit_stream;
 
+// Optional 2: Use a segment tree to find two min values in an array.
+template <class T>
+struct SegmentTreeNode
+{
+	int arg;
+	SegmentTreeNode *parent, *lchild, *rchild;
+};
+template <class T>
+SegmentTreeNode<T>* build_seg_tree(SegmentTreeNode<T> *p, std::vector<T> &arr, 
+						int l, int r, std::function<bool(T&, T&)> cmp)
+{
+	if(r == l + 1)
+	{
+		p->arg = l;
+		return p;
+	}
+	p->lchild = new SegmentTreeNode<T>();
+	p->rchild = new SegmentTreeNode<T>();
+	p->lchild->parent = p->rchild->parent = p;
+	int mid = (l + r + 1) >> 1;
+	auto lmin = build_seg_tree(p->lchild, arr, l, mid, cmp);
+	auto rmin = build_seg_tree(p->rchild, arr, mid, r, cmp);
+	bool cmp_res = cmp(arr[p->lchild->arg], arr[p->rchild->arg]);
+	p->arg = cmp_res ? p->lchild->arg : p->rchild->arg;
+	return cmp_res ? lmin : rmin;
+}
+template <class T>
+void del_seg_tree(SegmentTreeNode<T> *p)
+{
+	if(p == NULL) return;
+	del_seg_tree(p->lchild);
+	del_seg_tree(p->rchild);
+	delete p;
+}
+template <class T>
+std::pair<int, int> find_two_mins(std::vector<T> &arr, std::function<bool(T&, T&)> cmp)
+{
+	int n = arr.size();
+	if(n <= 1) return { 0, 0 };
+	auto seg_root = new SegmentTreeNode<T>();
+	seg_root->parent = nullptr;
+	auto min_ptr = build_seg_tree<T>(seg_root, arr, 0, n, cmp);
+	int min1 = seg_root->arg, min2 = -1, arg;
+	auto p = min_ptr;
+	if(p->parent == nullptr) return { min1, min1 };
+	while(p->parent != nullptr)
+	{
+		if(p == p->parent->lchild) arg = p->parent->rchild->arg;
+		else arg = p->parent->lchild->arg;
+		p = p->parent;
+		if(min2 == -1) min2 = arg;
+		else
+		{
+			bool cmp_res = cmp(arr[arg], arr[min2]);
+			if(cmp_res) min2 = arg;
+		}
+	}
+	del_seg_tree(seg_root);
+	return { min1, min2 };
+};
+
+// Wordtable & Bitstream processing functions
 bool is_letter(char c)
 {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
@@ -139,6 +202,7 @@ void print_word_token_info(int word_index)
 	std::cout << "\t freq: " << word_table[word_index].freq << std::endl;
 }
 
+// Processing functions
 int scan_words()
 {
 	// TODO (Optional 1)
@@ -182,16 +246,20 @@ int scan_file()
 	return 0;
 }
 
+int ceil_log_2(int x)
+{
+	int i = 0;
+	while(((x - 1) >> i) > 0) i++;
+	return i;
+}
+
+std::vector<HuffmanTreeNode*> huffman_nodes;
 int make_huffman_tree()
 {
-	auto cmp_huffman_node = [](HuffmanTreeNode* a, HuffmanTreeNode* b) 
-						-> bool { return a->weight > b->weight; };
-	std::priority_queue<HuffmanTreeNode*, 
-		std::vector<HuffmanTreeNode*>, 
-		decltype(cmp_huffman_node)> nodes_queue(cmp_huffman_node);
+	int compn = 0;
+	auto cmp_huffman_node = [&compn](HuffmanTreeNode* &a, HuffmanTreeNode* &b) 
+						-> bool { compn++; return a->weight < b->weight; };
 
-	// TODO (Optional 2): Use the n + ceil(lgn) - 2 algorithm
-	// Use a Segment tree to find the two smallest elements.
 	for(int i = 0; i < word_table.size(); i++)
 	{
 		if(word_table[i].freq > 0)
@@ -201,21 +269,33 @@ int make_huffman_tree()
 			node->weight = word_table[i].freq;
 			node->parent = NULL;
 			node->leaf.word_index = i;
-			nodes_queue.push(node);
+			huffman_nodes.push_back(node);
 		}
 	}
-	while(nodes_queue.size() > 1)
+	while(huffman_nodes.size() > 1)
 	{
+		int n = huffman_nodes.size(), max_compn = n + ceil_log_2(n) - 2;
+		compn = 0;
+		auto two_mins = find_two_mins<HuffmanTreeNode*>(huffman_nodes, cmp_huffman_node);
+		// printf("Compare number: %d, (n+ceil(lgn)-2)=%d\n", compn, max_compn);
+		if(compn > max_compn) return 2;	// If don't satisfy optional 2 then abort
+
 		auto node = (HuffmanTreeNode*)malloc(sizeof(HuffmanTreeNode));
 		node->type = NODE;
-		node->node.lchild = nodes_queue.top(); nodes_queue.pop();
-		node->node.rchild = nodes_queue.top(); nodes_queue.pop();
+		node->node.lchild = huffman_nodes[two_mins.first];
+		node->node.rchild = huffman_nodes[two_mins.second];
 		node->weight = node->node.lchild->weight + node->node.rchild->weight;
 		node->node.lchild->parent = node;
 		node->node.rchild->parent = node;
-		nodes_queue.push(node);
+
+		huffman_nodes[two_mins.first]  = huffman_nodes[huffman_nodes.size() - 1];
+		huffman_nodes[two_mins.second] = huffman_nodes[huffman_nodes.size() - 2];
+		huffman_nodes.pop_back();
+		huffman_nodes.pop_back();
+		huffman_nodes.push_back(node);
 	}
-	root = nodes_queue.top(); nodes_queue.pop();
+	root = huffman_nodes[0];
+	huffman_nodes.pop_back();
 	return 0;
 }
 
