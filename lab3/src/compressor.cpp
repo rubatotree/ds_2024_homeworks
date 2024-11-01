@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <iomanip>
 #include <tuple>
+#include <functional>
 
 const unsigned int max_word_number = 65536;
 const unsigned int max_word_length = 255;

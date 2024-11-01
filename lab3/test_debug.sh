@@ -4,7 +4,9 @@ mkdir ./build
 mkdir ./output
 mkdir ./output/compressed
 mkdir ./output/decompressed
+echo "---Compiling Compressor---"
 g++ -O2 ./src/compressor.cpp -o ./build/compressor
+echo "---Compiling Deompressor---"
 g++ -O2 ./src/decompressor.cpp -o ./build/decompressor
 
 
